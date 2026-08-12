@@ -1,0 +1,26 @@
+Antes de implementar cualquier código, analiza el workspace actual de MotoHub.
+
+Quiero comenzar únicamente con la FASE 1.
+
+Primero:
+
+1. Inspecciona la estructura actual del proyecto.
+2. Identifica si ya existe Flutter.
+3. Identifica si ya existe Backend.
+4. Identifica qué archivos de configuración existen.
+5. Verifica si existe .github/agents.
+6. Determina qué partes de la FASE 1 ya están implementadas.
+7. Indica qué falta implementar.
+
+NO MODIFIQUES NINGÚN ARCHIVO TODAVÍA.
+
+Después de analizar el proyecto, dame:
+
+- Estado actual.
+- Problemas encontrados.
+- Qué falta para completar FASE 1.
+- Propuesta de estructura final.
+- Paquetes que será necesario instalar.
+- Pasos que ejecutarías.
+
+NO avances a FASE 2.

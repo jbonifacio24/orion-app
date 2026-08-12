@@ -1,0 +1,34 @@
+Antes de continuar con la FASE 2, realiza una validación final de la FASE 1.
+
+NO MODIFIQUES NINGÚN ARCHIVO.
+
+Verifica:
+
+1. Estructura Clean Architecture de Flutter.
+2. Separación Domain / Data / Presentation.
+3. Configuración BLoC/Cubit.
+4. Dependency Injection con GetIt.
+5. Configuración Dio/Network.
+6. GoRouter.
+7. Material 3.
+8. Light/Dark Theme.
+9. Error handling.
+10. Estructura Backend:
+   - MotoHub.Domain
+   - MotoHub.Application
+   - MotoHub.Infrastructure
+   - MotoHub.Api
+11. Entity Framework Core.
+12. SQL Server.
+13. Swagger.
+14. Serilog.
+15. CORS.
+16. JWT base configuration.
+17. Ejecutar flutter analyze.
+18. Ejecutar flutter test.
+19. Ejecutar build del Backend.
+
+Indica cualquier problema encontrado.
+
+NO IMPLEMENTES NADA.
+NO AVANCES A FASE 2.

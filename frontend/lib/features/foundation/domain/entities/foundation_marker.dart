@@ -1,0 +1,3 @@
+class FoundationMarker {
+  const FoundationMarker();
+}

@@ -1,0 +1,24 @@
+# Flutter
+frontend/.dart_tool/
+frontend/.packages
+frontend/.flutter-plugins
+frontend/.flutter-plugins-dependencies
+frontend/build/
+frontend/.idea/
+frontend/android/.gradle/
+frontend/android/local.properties
+frontend/ios/Pods/
+
+# .NET
+**/bin/
+**/obj/
+*.user
+*.suo
+
+# Environment and secrets
+.env
+.env.*
+!.env.example
+
+# IDE
+.vscode/
