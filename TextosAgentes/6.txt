@@ -1,0 +1,41 @@
+Revisa únicamente la implementación de FASE 2.
+
+NO MODIFIQUES CÓDIGO.
+
+Revisa:
+
+- Entidades.
+- Relaciones.
+- Foreign Keys.
+- Índices.
+- Unique Constraints.
+- CreatedAt.
+- UpdatedAt.
+- Soft Delete.
+- GUID.
+- EF Core configurations.
+- DbContext.
+- Clean Architecture.
+- SOLID.
+- Dependency Injection.
+- Migraciones.
+- SQL Server.
+- Posibles problemas de rendimiento.
+- Posibles problemas de integridad referencial.
+
+Clasifica los hallazgos:
+
+CRITICAL
+HIGH
+MEDIUM
+LOW
+INFO
+
+Para cada problema indica:
+- archivo
+- entidad
+- problema
+- motivo
+- solución recomendada
+
+NO avances a FASE 3.

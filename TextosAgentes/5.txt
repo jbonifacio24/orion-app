@@ -1,0 +1,11 @@
+
+dotnet build MotoHub.sln
+
+dotnet ef migrations add InitialDatabase `
+  --project Backend/MotoHub.Infrastructure `
+  --startup-project Backend/MotoHub.Api `
+  --output-dir Persistence/Migrations
+
+dotnet ef database update `
+  --project Backend/MotoHub.Infrastructure `
+  --startup-project Backend/MotoHub.Api

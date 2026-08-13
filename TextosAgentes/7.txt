@@ -1,0 +1,149 @@
+Quiero validar si la FASE 2 de MotoHub está completamente terminada.
+
+IMPORTANTE:
+- NO MODIFIQUES NINGÚN ARCHIVO.
+- NO CREES ARCHIVOS.
+- NO AVANCES A FASE 3.
+- Solo inspecciona y valida.
+
+La FASE 2 corresponde a:
+"Base de datos y entidades".
+
+Realiza una auditoría completa del código actual.
+
+VALIDA:
+
+1. ENTIDADES
+   - User
+   - Role
+   - UserRole
+   - RefreshToken
+   - Motorcycle
+   - MotorcycleImage
+   - Product
+   - ProductImage
+   - Category
+   - Favorite
+   - Workshop
+   - WorkshopSchedule
+   - WorkshopService
+   - Review
+   - TheftReport
+   - TheftAlertRecipient
+   - Notification
+   - Conversation
+   - ConversationParticipant
+   - Message
+   - MessageAttachment
+   - Post
+   - PostComment
+   - PostLike
+   - News
+   - NewsCategory
+   - Referral
+   - ReferralReward
+   - Subscription
+   - Report
+   - AuditLog
+
+2. ENTITY CONFIGURATION
+   - Primary Keys
+   - Foreign Keys
+   - Relaciones
+   - Cardinalidades
+   - Índices
+   - Unique Constraints
+   - CreatedAt
+   - UpdatedAt
+   - Soft Delete cuando corresponda
+   - GUID
+
+3. ENTITY FRAMEWORK
+   - DbContext
+   - Fluent API
+   - Entity configurations
+   - SQL Server
+   - Dependency Injection
+
+4. DATABASE
+   - Migraciones
+   - Integridad referencial
+   - Índices
+   - Constraints
+   - Tipos de datos
+   - Posibles problemas de diseño
+
+5. ARQUITECTURA
+   - Clean Architecture
+   - Domain
+   - Application
+   - Infrastructure
+   - Api
+   - SOLID
+   - Dependency Inversion
+
+6. VALIDACIÓN TÉCNICA
+   - Backend build
+   - Tests
+   - Migraciones
+   - Errores de compilación
+   - Errores de EF Core
+
+IMPORTANTE:
+
+No consideres como completada una parte simplemente porque existe
+el archivo. Verifica que realmente esté implementada y conectada
+correctamente.
+
+AL FINAL RESPONDE EXACTAMENTE CON ESTE FORMATO:
+
+====================================
+RESULTADO FASE 2
+====================================
+
+Estado:
+[FASE 2 COMPLETADA]
+o
+[FASE 2 INCOMPLETA]
+
+Entidades:
+[X/31]
+
+Relaciones:
+[COMPLETAS / INCOMPLETAS]
+
+EF Core:
+[OK / CON PROBLEMAS]
+
+DbContext:
+[OK / CON PROBLEMAS]
+
+Migraciones:
+[OK / CON PROBLEMAS]
+
+SQL Server:
+[OK / CON PROBLEMAS]
+
+Build:
+[OK / ERROR]
+
+Tests:
+[OK / ERROR]
+
+Clean Architecture:
+[OK / CON PROBLEMAS]
+
+SOLID:
+[OK / CON PROBLEMAS]
+
+Problemas encontrados:
+- ...
+
+Elementos faltantes:
+- ...
+
+Acciones necesarias antes de FASE 3:
+- ...
+
+NO MODIFIQUES NADA.
+NO AVANCES A FASE 3.

@@ -1,0 +1,15 @@
+using Microsoft.EntityFrameworkCore;
+using MotoHub.Domain;
+
+namespace MotoHub.Infrastructure.Persistence;
+
+internal sealed class ReferralAndSubscriptionConfigurationModule : IModelConfigurationModule
+{
+    public void Configure(ModelBuilder builder)
+    {
+        builder.Entity<Referral>(e => { EntityConfigurationHelper.ConfigureEntity(e, "Referrals", false); e.Property(x => x.Code).HasMaxLength(100).IsRequired(); e.Property(x => x.Status).HasConversion<string>().HasMaxLength(40).IsRequired(); e.ToTable("Referrals", table => table.HasCheckConstraint("CK_Referrals_NotSelf", "[ReferredUserId] IS NULL OR [ReferredUserId] <> [ReferrerUserId]")); e.HasIndex(x => x.Code).IsUnique(); e.HasIndex(x => x.ReferredUserId); e.HasOne(x => x.Referrer).WithMany().HasForeignKey(x => x.ReferrerUserId).OnDelete(DeleteBehavior.Restrict); e.HasOne(x => x.ReferredUser).WithMany().HasForeignKey(x => x.ReferredUserId).OnDelete(DeleteBehavior.NoAction); });
+        builder.Entity<ReferralReward>(e => { EntityConfigurationHelper.ConfigureEntity(e, "ReferralRewards", false); e.Property(x => x.RewardType).HasConversion<string>().HasMaxLength(40).IsRequired(); e.Property(x => x.Amount).HasPrecision(18, 2); e.Property(x => x.Currency).HasMaxLength(3); e.Property(x => x.Status).HasConversion<string>().HasMaxLength(40).IsRequired(); e.ToTable("ReferralRewards", table => table.HasCheckConstraint("CK_ReferralRewards_Amount", "[Amount] IS NULL OR [Amount] >= 0")); e.HasIndex(x => new { x.ReferralId, x.RewardType }).IsUnique(); e.HasOne(x => x.Referral).WithMany(x => x.Rewards).HasForeignKey(x => x.ReferralId).OnDelete(DeleteBehavior.Restrict); e.HasOne(x => x.User).WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Restrict); });
+        builder.Entity<SubscriptionPlan>(e => { EntityConfigurationHelper.ConfigureEntity(e, "SubscriptionPlans", false); e.Property(x => x.Code).HasMaxLength(50).IsRequired(); e.Property(x => x.Price).HasPrecision(18, 2); e.Property(x => x.Currency).HasMaxLength(3).IsRequired(); e.HasIndex(x => x.Code).IsUnique(); });
+        builder.Entity<Subscription>(e => { EntityConfigurationHelper.ConfigureEntity(e, "Subscriptions", false); e.Property(x => x.Status).HasConversion<string>().HasMaxLength(40).IsRequired(); e.Property(x => x.Provider).HasConversion<string>().HasMaxLength(40).IsRequired(); e.Property(x => x.ProviderSubscriptionId).HasMaxLength(200).IsRequired(); e.ToTable("Subscriptions", table => table.HasCheckConstraint("CK_Subscriptions_Period", "[CurrentPeriodEnd] >= [CurrentPeriodStart]")); e.HasIndex(x => x.ProviderSubscriptionId).IsUnique(); e.HasIndex(x => new { x.UserId, x.Status }); e.HasIndex(x => x.UserId).HasFilter("[Status] = 'Active'").IsUnique(); e.HasOne(x => x.User).WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Restrict); e.HasOne(x => x.Plan).WithMany(x => x.Subscriptions).HasForeignKey(x => x.SubscriptionPlanId).OnDelete(DeleteBehavior.Restrict); });
+    }
+}

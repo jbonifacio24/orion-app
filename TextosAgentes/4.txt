@@ -1,0 +1,48 @@
+Ahora implementa la FASE 2 según el modelo aprobado.
+
+Implementa únicamente:
+
+- Domain entities.
+- Configuraciones de EF Core.
+- DbContext.
+- Relaciones.
+- Foreign Keys.
+- Índices.
+- Unique Constraints.
+- CreatedAt.
+- UpdatedAt.
+- Soft Delete cuando corresponda.
+- GUID como identificadores según el diseño.
+- Dependency Injection necesaria.
+- Configuración SQL Server.
+- Migración inicial.
+
+Mantén Clean Architecture y SOLID.
+
+NO implementar:
+- Login
+- Register
+- JWT funcional
+- Refresh Token funcional
+- Controllers de autenticación
+- Flutter UI
+- Marketplace
+- Chat
+- Notificaciones
+- Robos
+- Comunidad
+- Noticias
+
+Al finalizar:
+
+1. Ejecutar build del Backend.
+2. Ejecutar tests.
+3. Crear/ejecutar migración.
+4. Verificar que la base de datos pueda crearse correctamente.
+5. Verificar relaciones.
+6. Verificar índices.
+7. Verificar constraints.
+8. Mostrar las migraciones generadas.
+9. Mostrar resumen de entidades creadas.
+
+NO avanzar a FASE 3.
