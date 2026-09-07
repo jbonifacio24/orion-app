@@ -1,13 +1,17 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using MotoHub.Domain;
+using MotoHub.Infrastructure.Authentication;
 
 namespace MotoHub.Infrastructure.Persistence;
 
-public sealed class MotoHubDbContext(DbContextOptions<MotoHubDbContext> options) : DbContext(options)
+public sealed class MotoHubDbContext(DbContextOptions<MotoHubDbContext> options)
+    : IdentityDbContext<MotoHubIdentityUser, MotoHubIdentityRole, Guid>(options)
 {
-    public DbSet<User> Users => Set<User>();
-    public DbSet<Role> Roles => Set<Role>();
-    public DbSet<UserRole> UserRoles => Set<UserRole>();
+    public new DbSet<User> Users => Set<User>();
+    public new DbSet<Role> Roles => Set<Role>();
+    public new DbSet<UserRole> UserRoles => Set<UserRole>();
     public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
     public DbSet<Motorcycle> Motorcycles => Set<Motorcycle>();
     public DbSet<MotorcycleImage> MotorcycleImages => Set<MotorcycleImage>();
@@ -94,5 +98,13 @@ public sealed class MotoHubDbContext(DbContextOptions<MotoHubDbContext> options)
     {
         base.OnModelCreating(modelBuilder);
         MotoHubModelConfiguration.Configure(modelBuilder);
+
+        modelBuilder.Entity<MotoHubIdentityUser>().ToTable("AspNetUsers");
+        modelBuilder.Entity<MotoHubIdentityRole>().ToTable("AspNetRoles");
+        modelBuilder.Entity<IdentityUserRole<Guid>>().ToTable("AspNetUserRoles");
+        modelBuilder.Entity<IdentityUserClaim<Guid>>().ToTable("AspNetUserClaims");
+        modelBuilder.Entity<IdentityUserLogin<Guid>>().ToTable("AspNetUserLogins");
+        modelBuilder.Entity<IdentityRoleClaim<Guid>>().ToTable("AspNetRoleClaims");
+        modelBuilder.Entity<IdentityUserToken<Guid>>().ToTable("AspNetUserTokens");
     }
 }

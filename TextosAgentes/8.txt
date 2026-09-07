@@ -1,0 +1,75 @@
+Vamos a iniciar la FASE 3 de MotoHub: Autenticación.
+
+NO MODIFIQUES NINGÚN ARCHIVO TODAVÍA.
+
+Analiza primero la arquitectura actual y diseña la implementación
+de autenticación.
+
+La FASE 3 debe contemplar:
+
+- Registro
+- Login
+- Logout
+- JWT
+- Refresh Token
+- Roles
+- Recuperación de contraseña
+- Cambio de contraseña
+- Confirmación de email
+
+Analiza específicamente:
+
+1. ASP.NET Core Identity.
+2. User y Role existentes de FASE 2.
+3. UserRole existente.
+4. RefreshToken existente.
+5. JWT.
+6. Access Token.
+7. Refresh Token.
+8. Password hashing.
+9. Claims.
+10. Roles y autorización.
+11. Validación.
+12. CORS.
+13. Rate limiting.
+14. Manejo de errores.
+15. Seguridad de contraseñas.
+16. Configuración mediante variables de entorno/secrets.
+17. Integración con Clean Architecture.
+18. Dependency Injection.
+19. Endpoints necesarios.
+20. DTOs.
+21. UseCases.
+22. Repositories/Services necesarios.
+23. Integración Flutter con la autenticación.
+
+Determina qué partes deben pertenecer a:
+
+MotoHub.Domain
+MotoHub.Application
+MotoHub.Infrastructure
+MotoHub.Api
+Flutter
+
+También identifica si alguna implementación existente de FASE 2
+debe modificarse para soportar autenticación.
+
+NO IMPLEMENTES CÓDIGO.
+NO MODIFIQUES ARCHIVOS.
+NO AVANCES A FASE 4.
+
+Al finalizar presenta:
+
+1. Arquitectura propuesta.
+2. Flujo Register.
+3. Flujo Login.
+4. Flujo Refresh Token.
+5. Flujo Logout.
+6. Flujo recuperación de contraseña.
+7. Flujo cambio de contraseña.
+8. Flujo confirmación de email.
+9. Modelo de seguridad.
+10. Endpoints propuestos.
+11. DTOs propuestos.
+12. Cambios necesarios en Flutter.
+13. Riesgos o decisiones arquitectónicas que debamos revisar antes de implementar.

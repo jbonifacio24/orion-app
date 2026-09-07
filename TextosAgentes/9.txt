@@ -1,0 +1,172 @@
+La decisión arquitectónica sobre autenticación ha sido aprobada.
+
+Implementa ahora únicamente la FASE 3 de MotoHub.
+
+DECISIÓN ARQUITECTÓNICA APROBADA
+
+ASP.NET Identity será la fuente principal de:
+
+- autenticación
+- credenciales
+- roles
+- claims
+- confirmación de email
+- recuperación de contraseña
+
+MotoHub.Domain.User será la entidad de perfil y negocio.
+
+MotoHub.Domain.RefreshToken será la entidad de sesiones JWT.
+
+Los Refresh Tokens deben almacenarse únicamente como HASH,
+nunca como token en texto plano.
+
+Identity y Domain.User compartirán el mismo Guid de usuario.
+
+MotoHub.Domain NO debe depender de ASP.NET Identity.
+
+Infrastructure implementará los adaptadores y servicios técnicos.
+
+Application expondrá los casos de uso y abstracciones.
+
+API configurará:
+
+- JWT
+- autorización
+- CORS
+- rate limiting
+- endpoints
+
+Flutter consumirá únicamente el contrato HTTP de autenticación.
+
+IMPLEMENTAR FASE 3
+
+Implementa:
+
+1. ASP.NET Identity.
+2. IdentityUser con Guid.
+3. IdentityRole con Guid.
+4. Integración entre Identity User y MotoHub.Domain.User.
+5. Roles.
+6. Claims.
+7. Password hashing.
+8. Registro.
+9. Login.
+10. Logout.
+11. JWT Access Token.
+12. Refresh Token.
+13. Rotación de Refresh Token.
+14. Revocación de Refresh Token.
+15. Almacenamiento HASH del Refresh Token.
+16. Confirmación de email.
+17. Recuperación de contraseña.
+18. Cambio de contraseña.
+19. Autorización basada en roles.
+20. Validaciones.
+21. Manejo centralizado de errores.
+22. Rate limiting.
+23. CORS.
+24. Configuración segura mediante configuración/secrets.
+25. Swagger/OpenAPI para autenticación.
+
+ARQUITECTURA
+
+Mantener:
+
+MotoHub.Domain
+MotoHub.Application
+MotoHub.Infrastructure
+MotoHub.Api
+
+No introducir dependencia de ASP.NET Identity dentro de Domain.
+
+Los controllers deben permanecer delgados.
+
+La lógica de negocio debe estar en Application/Domain.
+
+Infrastructure debe contener las implementaciones técnicas.
+
+SEGURIDAD
+
+Nunca:
+
+- almacenar passwords en texto plano
+- almacenar Refresh Tokens en texto plano
+- registrar passwords en logs
+- registrar JWT en logs
+- registrar Refresh Tokens en logs
+- almacenar secrets directamente en código
+
+Implementar correctamente:
+
+- expiración de Access Token
+- expiración de Refresh Token
+- rotación
+- revocación
+- detección de reutilización cuando corresponda
+- autorización
+- validación de entrada
+
+FLUTTER
+
+Implementar únicamente la infraestructura necesaria para consumir
+el contrato HTTP de autenticación.
+
+Preparar:
+
+- AuthRepository
+- AuthDataSource
+- AuthCubit
+- modelos/DTOs necesarios
+- Dio interceptor para Access Token
+- almacenamiento seguro de tokens con flutter_secure_storage
+- manejo de expiración/refresh
+
+No implementar todavía las pantallas completas de negocio.
+
+VALIDACIÓN
+
+Al finalizar:
+
+1. Ejecutar build del Backend.
+2. Ejecutar tests del Backend.
+3. Ejecutar migraciones necesarias.
+4. Verificar Swagger.
+5. Ejecutar flutter pub get.
+6. Ejecutar flutter analyze.
+7. Ejecutar flutter test.
+8. Verificar que Flutter compile.
+9. Verificar Register.
+10. Verificar Login.
+11. Verificar Access Token.
+12. Verificar Refresh Token.
+13. Verificar Logout.
+14. Verificar autorización por roles.
+
+Mostrar al finalizar:
+
+- archivos creados/modificados
+- endpoints de autenticación
+- estructura de Application
+- estructura de Infrastructure
+- estructura de API
+- estructura Flutter
+- migraciones
+- comandos ejecutados
+- resultados de build/tests/analyze
+- cualquier problema pendiente
+
+IMPORTANTE:
+
+Implementar únicamente FASE 3.
+
+NO implementar Marketplace.
+NO implementar Motos.
+NO implementar Talleres.
+NO implementar Robos.
+NO implementar Chat.
+NO implementar Comunidad.
+NO implementar Noticias.
+NO implementar VIP.
+NO implementar Administración.
+
+NO avanzar a FASE 4.

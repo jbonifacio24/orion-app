@@ -16,6 +16,13 @@ public abstract class SoftDeletableEntity : Entity
 
 public sealed class User : SoftDeletableEntity
 {
+    public User() { }
+
+    public User(Guid id)
+    {
+        Id = id;
+    }
+
     public string UserName { get; set; } = string.Empty;
     public string NormalizedUserName { get; set; } = string.Empty;
     public string Email { get; set; } = string.Empty;

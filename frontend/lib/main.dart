@@ -4,6 +4,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'core/di/injection.dart';
 import 'core/router/app_router.dart';
 import 'core/theme/app_theme.dart';
+import 'features/auth/presentation/cubit/auth_cubit.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -23,7 +24,11 @@ class MotoHubApp extends StatelessWidget {
       themeMode: ThemeMode.system,
       routerConfig: appRouter,
       builder: (context, child) => MultiBlocProvider(
-        providers: const [],
+        providers: [
+          BlocProvider<AuthCubit>(
+            create: (_) => getIt<AuthCubit>()..restore(),
+          ),
+        ],
         child: child ?? const SizedBox.shrink(),
       ),
     );
