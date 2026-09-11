@@ -1,0 +1,856 @@
+1. ESTADO ACTUAL
+No se modificó ningún archivo durante este análisis.
+
+Flutter contiene actualmente:
+
+lib/main.dart
+core/constants
+core/di
+core/error
+core/extensions
+core/network
+core/router
+core/services
+core/theme
+core/utils
+core/widgets
+features/foundation
+features/auth
+FASE 1
+Se identifican como base inicial:
+
+foundation_service.dart
+foundation_marker.dart
+foundation_repository.dart
+foundation_repository_impl.dart
+foundation_data_source.dart
+foundation_model.dart
+foundation_use_case.dart
+home_page.dart
+foundation funciona como marcador arquitectónico. No representa todavía una funcionalidad de negocio.
+
+FASE 3
+Se implementaron:
+
+auth_entities.dart
+auth_repository.dart
+auth_models.dart
+auth_data_source.dart
+auth_repository_impl.dart
+auth_cubit.dart
+token_storage.dart
+api_client.dart
+injection.dart
+La autenticación ya contiene:
+
+Login.
+Register en el repositorio.
+Logout.
+Access token.
+Refresh token.
+Rotación de refresh token.
+Secure storage.
+Interceptor Dio.
+AuthCubit.
+Registro mediante GetIt.
+Consulta del usuario actual.
+2. COMPONENTES REUTILIZABLES
+Deben reutilizarse sin duplicación:
+
+AuthCubit.
+AuthRepository.
+AuthRepositoryImpl.
+AuthDataSource.
+AuthUser y sus modelos.
+TokenStorage.
+ApiClient.
+Interceptor de autenticación.
+Registro existente de GetIt.
+AppTheme.light.
+AppTheme.dark.
+AppLoading.
+Result<T>.
+AppException.
+La ruta actual de Home como placeholder inicial.
+No se debe crear otro:
+
+AuthBloc.
+AuthRepository.
+TokenStorage.
+Dio.
+Interceptor JWT.
+Servicio independiente para refresh tokens.
+Mecanismo paralelo de logout.
+3. PROBLEMAS ENCONTRADOS
+3.1 ApiClient necesita refactor interno
+api_client.dart funciona conceptualmente, pero tiene formato e indentación inconsistente.
+
+También contiene un problema funcional:
+
+bool _refreshing = false;
+
+Si varias solicitudes reciben 401 al mismo tiempo, las solicitudes posteriores mientras _refreshing == true fallan directamente en lugar de esperar el refresh en curso.
+
+Debe utilizarse una coordinación compartida, por ejemplo:
+
+Future de refresh reutilizable.
+Cola de solicitudes.
+Mutex lógico.
+Un único refresh concurrente.
+3.2 Manejo de errores incompleto
+app_exception.dart solo define:
+
+NetworkException
+UnknownException
+No existen tipos diferenciados para:
+
+400
+401
+403
+404
+409
+422
+429
+500
+503
+timeout
+respuesta inválida
+error de serialización
+Actualmente AuthCubit expone:
+error.toString()
+
+Eso puede mostrar mensajes técnicos de Dio al usuario.
+
+3.3 No existe una capa central de mapeo de errores
+AuthDataSource deja que los DioException suban directamente al repositorio.
+
+La separación deseable sería:
+
+DioException
+    ↓
+InfrastructureException
+    ↓
+Failure de dominio/aplicación
+    ↓
+Estado del Cubit
+    ↓
+Mensaje visible en español
+
+3.4 AuthCubit está incompleto
+auth_cubit.dart contiene:
+
+restore
+login
+logout
+No contiene:
+
+register
+forgotPassword
+recuperación de contraseña
+confirmación de email
+cambio de contraseña
+estado de sesión restaurando
+estado de sesión expirada
+actualización reactiva para GoRouter
+El repositorio sí contiene register y forgotPassword, por lo que no se deben duplicar; el Cubit debe reutilizar esas operaciones.
+
+3.5 El repositorio no tiene casos de uso
+La interfaz de dominio apunta directamente al repositorio desde el Cubit.
+
+Para una infraestructura pequeña esto funciona, pero para mantener Clean Architecture y SOLID sería preferible agregar casos de uso de autenticación, al menos:
+
+RestoreSession
+Login
+Register
+Logout
+ForgotPassword
+No se deben crear casos de uso para futuras funcionalidades de negocio.
+
+3.6 Logout no es resiliente
+En auth_repository_impl.dart, si la llamada remota de logout falla, el almacenamiento local no se limpia porque el clear() ocurre después del await.
+
+Esto puede dejar tokens locales aunque el usuario haya solicitado cerrar sesión.
+
+La política recomendada:
+
+Intentar revocar en API.
+Limpiar siempre tokens locales.
+Propagar el error remoto únicamente si la interfaz necesita informarlo.
+
+3.7 GoRouter aún no está integrado con autenticación
+app_router.dart solo contiene:
+/
+
+No existen:
+
+Splash.
+Login.
+Register.
+Rutas públicas.
+Rutas protegidas.
+Redirección basada en sesión.
+Redirección después de logout.
+Estado de refresh de sesión.
+3.8 Problema potencial con GetIt en tests
+main.dart obtiene AuthCubit desde GetIt.
+
+Sin embargo, el widget test construye MotoHubApp directamente. Si no se ejecuta antes configureDependencies(), puede producir un error de registro faltante:
+AuthCubit is not registered inside GetIt
+
+La prueba debe aislar dependencias mediante:
+
+Setup de GetIt en el test.
+Registro de mocks.
+Constructor configurable de la aplicación.
+Provider explícito para tests.
+3.9 Base URL fija
+app_constants.dart contiene:
+https://localhost:7001/api
+
+Esto no es apropiado para todos los targets:
+
+Windows puede usar localhost.
+Android emulator normalmente requiere 10.0.2.2.
+Dispositivo físico requiere la IP local.
+Producción debe usar configuración externa.
+Debe existir una estrategia de configuración por entorno sin incluir secretos.
+
+3.10 Serialización manual
+auth_models.dart implementa fromJson manualmente.
+
+El proyecto ya incluye:
+
+json_annotation
+json_serializable
+build_runner
+Pero todavía no utiliza código generado.
+
+No es un error inmediato, aunque conviene decidir una única estrategia antes de aumentar el número de modelos.
+
+3.11 Localización no preparada
+No existe una estructura de localización para:
+
+Español.
+Inglés.
+Actualmente los textos están escritos directamente en Widgets:
+MotoHub
+Bienvenido a MotoHub
+
+3.12 Theme demasiado básico
+app_theme.dart usa ColorScheme.fromSeed, pero no define explícitamente:
+
+Colores de marca.
+Tipografía.
+AppBar.
+Buttons.
+Inputs.
+Cards.
+Dialogs.
+Snackbars.
+Estados de error.
+Componentes comunes.
+4. ARQUITECTURA PROPUESTA PARA FASE 4
+La arquitectura propuesta mantiene Clean Architecture:
+Presentation
+    ↓
+Domain
+    ↓
+Data
+    ↓
+Core Infrastructure
+
+Core
+Debe concentrar:
+
+Configuración de entorno.
+Errores de infraestructura.
+Mapeo de errores.
+Dio.
+Secure storage.
+Router.
+Theme.
+Widgets base.
+Resultados y fallos comunes.
+
+Features
+Cada feature mantiene:
+feature/
+  data/
+  domain/
+  presentation/
+
+Para FASE 4 solo deben completarse:
+
+auth
+foundation como Home placeholder
+No deben implementarse features de negocio.
+
+Auth
+La autenticación existente debe permanecer como única fuente Flutter para:
+
+Tokens.
+Sesión.
+Login.
+Register.
+Logout.
+Refresh.
+Usuario actual.
+
+Navegación
+GoRouter debe observar el estado de AuthCubit o una abstracción de sesión y redirigir:
+Splash → Login
+Splash → Home
+Login → Home
+Register → Home o Login
+Logout → Login
+Sesión expirada → Login
+
+5. ÁRBOL DE CARPETAS PROPUESTO
+Árbol propuesto para después de FASE 4:
+
+lib/
+├── main.dart
+├── core/
+│   ├── constants/
+│   │   ├── app_constants.dart
+│   │   └── environment_config.dart
+│   ├── error/
+│   │   ├── app_exception.dart
+│   │   ├── app_failure.dart
+│   │   ├── error_mapper.dart
+│   │   └── network_failure.dart
+│   ├── extensions/
+│   │   └── foundation_extensions.dart
+│   ├── localization/
+│   │   ├── app_localizations.dart
+│   │   └── l10n/
+│   │       ├── app_es.arb
+│   │       └── app_en.arb
+│   ├── network/
+│   │   ├── api_client.dart
+│   │   ├── api_error_interceptor.dart
+│   │   ├── auth_interceptor.dart
+│   │   └── token_storage.dart
+│   ├── router/
+│   │   ├── app_router.dart
+│   │   ├── route_names.dart
+│   │   └── router_refresh_notifier.dart
+│   ├── services/
+│   │   └── foundation_service.dart
+│   ├── theme/
+│   │   ├── app_colors.dart
+│   │   ├── app_theme.dart
+│   │   └── app_typography.dart
+│   ├── utils/
+│   │   └── result.dart
+│   └── widgets/
+│       ├── app_button.dart
+│       ├── app_error_state.dart
+│       ├── app_loading.dart
+│       └── app_empty_state.dart
+├── features/
+│   ├── auth/
+│   │   ├── data/
+│   │   │   ├── datasources/
+│   │   │   │   └── auth_data_source.dart
+│   │   │   ├── models/
+│   │   │   │   ├── auth_models.dart
+│   │   │   │   └── auth_models.g.dart
+│   │   │   └── repositories/
+│   │   │       └── auth_repository_impl.dart
+│   │   ├── domain/
+│   │   │   ├── entities/
+│   │   │   │   └── auth_entities.dart
+│   │   │   ├── repositories/
+│   │   │   │   └── auth_repository.dart
+│   │   │   └── usecases/
+│   │   │       ├── login.dart
+│   │   │       ├── logout.dart
+│   │   │       ├── register.dart
+│   │   │       └── restore_session.dart
+│   │   └── presentation/
+│   │       ├── cubit/
+│   │       │   └── auth_cubit.dart
+│   │       ├── pages/
+│   │       │   ├── login_page.dart
+│   │       │   ├── register_page.dart
+│   │       │   └── splash_page.dart
+│   │       └── widgets/
+│   │           └── auth_form_field.dart
+│   └── foundation/
+│       ├── data/
+│       ├── domain/
+│       └── presentation/
+│           └── pages/
+│               └── home_page.dart
+
+Los archivos .g.dart serían generados por build_runner, no escritos manualmente.
+
+6. ARCHIVOS A CREAR
+Propuesta exacta:
+
+frontend/lib/core/constants/environment_config.dart
+
+frontend/lib/core/error/app_failure.dart
+frontend/lib/core/error/error_mapper.dart
+frontend/lib/core/error/network_failure.dart
+
+frontend/lib/core/localization/app_localizations.dart
+frontend/lib/core/localization/l10n/app_es.arb
+frontend/lib/core/localization/l10n/app_en.arb
+
+frontend/lib/core/network/api_error_interceptor.dart
+frontend/lib/core/network/auth_interceptor.dart
+
+frontend/lib/core/router/route_names.dart
+frontend/lib/core/router/router_refresh_notifier.dart
+
+frontend/lib/core/theme/app_colors.dart
+frontend/lib/core/theme/app_typography.dart
+
+frontend/lib/core/widgets/app_button.dart
+frontend/lib/core/widgets/app_error_state.dart
+frontend/lib/core/widgets/app_empty_state.dart
+
+frontend/lib/features/auth/domain/usecases/login.dart
+frontend/lib/features/auth/domain/usecases/logout.dart
+frontend/lib/features/auth/domain/usecases/register.dart
+frontend/lib/features/auth/domain/usecases/restore_session.dart
+
+frontend/lib/features/auth/presentation/pages/login_page.dart
+frontend/lib/features/auth/presentation/pages/register_page.dart
+frontend/lib/features/auth/presentation/pages/splash_page.dart
+frontend/lib/features/auth/presentation/widgets/auth_form_field.dart
+
+
+Opcionalmente, si se decide usar serialización generada:
+frontend/lib/features/auth/data/models/auth_models.g.dart
+
+Este archivo no debe crearse manualmente.
+
+7. ARCHIVOS A MODIFICAR
+Propuesta exacta:
+frontend/lib/main.dart
+frontend/lib/core/constants/app_constants.dart
+frontend/lib/core/error/app_exception.dart
+frontend/lib/core/network/api_client.dart
+frontend/lib/core/router/app_router.dart
+frontend/lib/core/theme/app_theme.dart
+frontend/lib/core/di/injection.dart
+frontend/lib/core/utils/result.dart
+frontend/lib/features/auth/data/repositories/auth_repository_impl.dart
+frontend/lib/features/auth/presentation/cubit/auth_cubit.dart
+frontend/lib/features/auth/data/models/auth_models.dart
+frontend/test/widget_test.dart
+frontend/pubspec.yaml
+
+
+Motivo de cada modificación:
+
+main.dart: inicialización y composición global.
+app_constants.dart: configuración de URL sin hardcodear entorno.
+app_exception.dart: errores categorizados.
+api_client.dart: coordinación segura de refresh.
+app_router.dart: rutas públicas, protegidas y redirecciones.
+app_theme.dart: ThemeData completo.
+injection.dart: casos de uso, servicios y dependencias.
+result.dart: separar éxito, fallo e infraestructura.
+auth_repository_impl.dart: logout resiliente y manejo de errores.
+auth_cubit.dart: register, restore, estados y navegación.
+auth_models.dart: serialización consistente.
+widget_test.dart: aislar GetIt y probar el nuevo arranque.
+pubspec.yaml: únicamente si se añade localización o una dependencia realmente necesaria.
+
+8. ARCHIVOS QUE NO DEBEN TOCARSE
+No deben modificarse durante FASE 4:
+Backend/**
+
+Especialmente:
+Backend/MotoHub.Domain/**
+Backend/MotoHub.Application/**
+Backend/MotoHub.Infrastructure/**
+Backend/MotoHub.Api/**
+
+Tampoco deben modificarse las funcionalidades futuras inexistentes:
+features/motorcycle
+features/marketplace
+features/workshop
+features/theft
+features/notification
+features/chat
+features/community
+features/news
+features/referral
+features/vip
+features/administration
+
+Componentes de FASE 3 que deben conservarse conceptualmente y no duplicarse:
+
+TokenStorage.
+AuthDataSource.
+AuthRepository.
+AuthRepositoryImpl.
+AuthUser.
+AuthUserModel.
+AuthResponseModel.
+AuthCubit.
+ApiClient.
+Podrán modificarse únicamente para corregir los problemas identificados, nunca reemplazarse por implementaciones paralelas.
+
+9. FLUJO DE AUTENTICACIÓN
+Login
+LoginPage
+  ↓
+AuthCubit.login()
+  ↓
+AuthRepository.login()
+  ↓
+AuthDataSource.login()
+  ↓
+Dio POST /api/auth/login
+  ↓
+API devuelve accessToken + refreshToken
+  ↓
+TokenStorage.save()
+  ↓
+AuthCubit emite AuthAuthenticated
+  ↓
+GoRouter redirige a Home
+
+Solicitud autenticada
+Dio request
+  ↓
+AuthInterceptor lee accessToken
+  ↓
+Authorization: Bearer <token>
+  ↓
+API
+
+Access token expirado
+API devuelve 401
+  ↓
+AuthInterceptor detecta 401
+  ↓
+Lee refreshToken desde TokenStorage
+  ↓
+POST /api/auth/refresh
+  ↓
+Guarda nuevos tokens
+  ↓
+Marca request como retried
+  ↓
+Reintenta una sola vez la solicitud original
+
+Refresh fallido
+Refresh devuelve 401
+  ↓
+Limpia TokenStorage
+  ↓
+Emite sesión no autenticada
+  ↓
+GoRouter redirige a Login
+
+Debe existir coordinación para que varias peticiones simultáneas reutilicen el mismo Future de refresh.
+
+Logout
+AuthCubit.logout()
+  ↓
+AuthRepository.logout()
+  ↓
+POST /api/auth/logout
+  ↓
+Limpieza local siempre
+  ↓
+AuthUnauthenticated
+  ↓
+GoRouter redirige a Login
+
+10. FLUJO DE NAVEGACIÓN
+Rutas propuestas:
+/splash
+/login
+/register
+/home
+
+Rutas públicas
+/login
+/register
+Ruta temporal
+/splash
+La ruta Splash espera a que AuthCubit.restore() finalice.
+
+Rutas protegidas
+/home
+Futuras rutas de MotoHub.
+Redirecciones
+AuthInitial/AuthLoading → /splash
+Unauthenticated + ruta protegida → /login
+Authenticated + /login → /home
+Authenticated + /register → /home
+Logout → /login
+Refresh fallido → /login
+
+GoRouter debe observar una señal de cambio de autenticación. No debe leer directamente flutter_secure_storage desde el router.
+
+11. DEPENDENCY INJECTION
+GetIt debe registrar dependencias en orden:
+TokenStorage
+  ↓
+Dio / ApiClient
+  ↓
+Interceptors
+  ↓
+AuthDataSource
+  ↓
+AuthRepository
+  ↓
+Auth use cases
+  ↓
+AuthCubit
+
+
+Registros propuestos:
+
+TokenStorage: LazySingleton.
+Dio o ApiClient: LazySingleton.
+Interceptors: creados dentro del cliente o registrados como servicios.
+AuthDataSource: LazySingleton.
+AuthRepository: LazySingleton.
+Use cases: LazySingleton o factory según estado.
+AuthCubit: Factory.
+No se debe registrar un AuthCubit singleton global porque posee estado mutable de sesión.
+
+12. NETWORKING
+Dio debe centralizar:
+
+baseUrl.
+connectTimeout.
+receiveTimeout.
+sendTimeout.
+Content-Type.
+Headers comunes.
+Access token.
+Refresh token.
+Errores.
+Reintentos controlados.
+Configuración de desarrollo.
+Interceptors propuestos:
+
+AuthInterceptor
+Responsable de:
+
+Añadir access token.
+Detectar 401.
+Ejecutar refresh.
+Actualizar tokens.
+Reintentar una sola vez.
+Limpiar sesión si el refresh falla.
+ErrorInterceptor
+Responsable de:
+
+Convertir DioException en errores de infraestructura.
+Clasificar códigos HTTP.
+No mostrar información sensible.
+No registrar tokens.
+No debe utilizarse un interceptor de logging que incluya:
+
+Headers Authorization.
+Body con passwords.
+Body con refresh tokens.
+Respuestas que contengan tokens.
+13. ERROR HANDLING
+Mapa propuesto:
+
+HTTP	Error de aplicación
+400	ValidationFailure
+401	UnauthorizedFailure
+403	ForbiddenFailure
+404	NotFoundFailure
+409	ConflictFailure
+422	ValidationFailure
+429	RateLimitFailure
+500	ServerFailure
+503	ServiceUnavailableFailure
+timeout	TimeoutFailure
+sin conexión	NetworkFailure
+respuesta inválida	SerializationFailure
+desconocido	UnknownFailure
+Separación:
+DioException
+  ↓
+InfrastructureException
+  ↓
+Failure
+  ↓
+AuthState/AuthFailure
+  ↓
+Texto localizado en español
+
+
+Los Widgets no deben interpretar DioException directamente.
+
+14. SEGURIDAD
+Aspectos correctos
+Tokens en flutter_secure_storage.
+No se usa SharedPreferences para tokens.
+El access token se envía por Authorization.
+El refresh token se envía al endpoint dedicado.
+Existe límite de reintento mediante retried.
+Existe limpieza de storage tras refresh fallido.
+No debe añadirse logging sensible.
+Riesgos pendientes
+Refresh concurrente sin coordinación.
+Base URL fija para todos los entornos.
+Posible exposición de errores técnicos mediante error.toString().
+Logout que puede no limpiar tokens si falla la API.
+Registro devuelve sesión aunque el backend pueda requerir confirmación de email.
+GoRouter no protege rutas actualmente.
+Tests dependen del estado global de GetIt.
+AuthCubit no cubre todas las operaciones ya disponibles.
+Serialización manual susceptible a cambios de contrato.
+No hay estrategia formal de expiración local del access token.
+No existe una política explícita de cancelación de peticiones al cerrar sesión.
+No hay tests de seguridad para refresh y reintentos.
+15. TESTS NECESARIOS
+Core
+Creación de themes Light y Dark.
+Configuración de URL por entorno.
+Mapeo de errores HTTP.
+Mapeo de timeout.
+Mapeo de error de red.
+No inclusión de tokens en logs.
+TokenStorage
+Guardar access token.
+Guardar refresh token.
+Leer tokens.
+Limpiar tokens.
+Manejo de almacenamiento fallido.
+AuthDataSource
+Login correcto.
+Register correcto.
+Logout correcto.
+Refresh correcto.
+Respuesta JSON inválida.
+Propagación de errores HTTP.
+AuthRepository
+Conversión de modelo a entidad.
+Persistencia de sesión.
+Restauración de sesión.
+Limpieza local después de logout.
+Logout aunque falle la API.
+Refresh fallido.
+AuthCubit
+Estado inicial.
+Estado loading.
+Login exitoso.
+Login fallido.
+Register exitoso.
+Logout exitoso.
+Restore sin tokens.
+Restore con sesión válida.
+Expiración de sesión.
+Interceptor
+Añade Authorization.
+Omite Authorization en refresh.
+Ejecuta refresh en 401.
+Reintenta solo una vez.
+No entra en loop.
+Coordina múltiples solicitudes simultáneas.
+Limpia tokens si refresh falla.
+Router
+Usuario no autenticado va a Login.
+Usuario autenticado va a Home.
+Splash espera restauración.
+Logout redirige a Login.
+Usuario autenticado no vuelve a Login.
+Flutter
+
+flutter pub get
+flutter analyze
+flutter test
+flutter build windows --debug
+
+16. CRITERIOS DE ACEPTACIÓN
+FASE 4 podrá considerarse terminada cuando:
+
+La estructura Clean Architecture esté clara.
+No existan implementaciones duplicadas de Auth.
+flutter analyze finalice sin problemas.
+flutter test finalice correctamente.
+Flutter compile en Windows.
+Flutter compile en los targets soportados por el equipo.
+Existan rutas Splash, Login, Register y Home.
+Existan rutas públicas y protegidas.
+GoRouter redirija según autenticación.
+GetIt registre todas las dependencias necesarias.
+Dio tenga URL configurable.
+Dio añada access tokens.
+Dio ejecute refresh automático.
+El refresh no produzca loops infinitos.
+Varias solicitudes concurrentes no produzcan múltiples refresh conflictivos.
+Los tokens solo estén en flutter_secure_storage.
+Los tokens no aparezcan en logs.
+Exista mapeo central de errores.
+Los Widgets no llamen directamente a Dio.
+Los Widgets no accedan directamente a storage.
+Los repositorios no usen BuildContext.
+No exista lógica de negocio dentro de build().
+Light Theme y Dark Theme estén centralizados.
+La identidad visual use carbón, blanco, gris y naranja.
+Los textos visibles iniciales estén en español.
+La estructura permita inglés posteriormente.
+No se implementen features posteriores de MotoHub.
+FASE 3 continúe funcionando sin cambios backend.
+Los tests cubran autenticación y navegación.
+17. RIESGOS
+Riesgo alto
+Modificar el interceptor de refresh sin pruebas concurrentes puede provocar:
+
+pérdida de sesión,
+múltiples refresh simultáneos,
+refresh token invalidado prematuramente,
+loops de 401.
+Riesgo alto
+Cambiar AuthRepositoryImpl puede romper:
+
+persistencia de tokens,
+restauración de sesión,
+logout,
+compatibilidad con el backend de FASE 3.
+Riesgo medio
+Introducir GoRouter con un estado de autenticación no reactivo puede dejar rutas protegidas accesibles o provocar redirecciones repetidas.
+
+Riesgo medio
+Cambiar modelos manuales a json_serializable puede modificar nombres JSON o tipos esperados por la API.
+
+Riesgo medio
+Modificar GetIt puede provocar errores en:
+
+main.dart,
+tests,
+inicialización de cubits,
+orden de dependencias.
+Riesgo medio
+Modificar AppConstants.apiBaseUrl sin estrategia por plataforma puede romper:
+
+Windows,
+Android emulator,
+dispositivos físicos,
+ejecución contra la API local.
+Riesgo bajo
+Ampliar el Theme puede alterar la pantalla foundation existente, aunque no debería afectar la lógica.
+
+18. RECOMENDACIÓN FINAL
+La base existente es suficiente para iniciar la implementación de FASE 4, pero no recomiendo implementarla sin corregir durante el siguiente paso estos puntos prioritarios:
+
+Coordinación de refresh concurrente.
+Manejo centralizado de errores.
+Logout con limpieza local garantizada.
+Configuración de baseUrl por entorno.
+Integración real entre AuthCubit y GoRouter.
+Registro de dependencias aislable en tests.
+Preparación de rutas Splash, Login, Register y Home.
+Pruebas de autenticación y navegación.
+No se modificó ningún archivo, no se crearon archivos, no se eliminaron archivos y no se ejecutaron migraciones.
+
+El análisis queda listo para aprobación. La implementación de FASE 4 debe comenzar únicamente después de tu aprobación explícita.

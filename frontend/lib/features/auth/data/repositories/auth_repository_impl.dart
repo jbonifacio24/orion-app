@@ -1,4 +1,5 @@
 import '../../../../core/network/token_storage.dart';
+import '../../../../core/error/error_mapper.dart';
 import '../../domain/repositories/auth_repository.dart';
 import '../../domain/entities/auth_entities.dart';
 import '../datasources/auth_data_source.dart';
@@ -45,18 +46,27 @@ class AuthRepositoryImpl implements AuthRepository {
   @override
   Future<void> logout() async {
     final refreshToken = await _tokenStorage.refreshToken;
-    if (refreshToken != null) {
-      await _dataSource.logout(refreshToken);
+    try {
+      if (refreshToken != null) {
+        await _dataSource.logout(refreshToken);
+      }
+    } catch (error) {
+      throw ErrorMapper.from(error);
+    } finally {
+      await _tokenStorage.clear();
+      _currentUser = null;
     }
-    await _tokenStorage.clear();
-    _currentUser = null;
   }
 
   @override
   Future<void> restoreSession() async {
     final accessToken = await _tokenStorage.accessToken;
     if (accessToken == null) return;
-    _currentUser = _toDomainUser(await _dataSource.currentUser());
+    try {
+      _currentUser = _toDomainUser(await _dataSource.currentUser());
+    } catch (error) {
+      throw ErrorMapper.from(error);
+    }
   }
 
   @override

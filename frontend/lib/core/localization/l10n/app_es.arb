@@ -1,0 +1,8 @@
+{
+  "@@locale": "es",
+  "appName": "MotoHub",
+  "login": "Iniciar sesión",
+  "register": "Crear cuenta",
+  "logout": "Cerrar sesión",
+  "homeWelcome": "Bienvenido a MotoHub"
+}

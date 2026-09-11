@@ -1,0 +1,556 @@
+Estamos realizando el CODE REVIEW de la FASE 4 de MotoHub.
+
+FASE 4 ya fue implementada.
+
+Las validaciones ejecutadas fueron:
+
+flutter analyze
+→ No issues found!
+
+flutter test
+→ All tests passed!
+
+flutter build windows --debug
+→ Build exitoso.
+
+Ahora necesito realizar exclusivamente el CODE REVIEW de FASE 4.
+
+NO MODIFIQUES NINGÚN ARCHIVO.
+NO CREES ARCHIVOS.
+NO ELIMINES ARCHIVOS.
+NO HAGAS COMMIT.
+NO HAGAS PUSH.
+NO IMPLEMENTES CORRECCIONES.
+
+Tu trabajo es únicamente revisar la implementación actual.
+
+==================================================
+OBJETIVO DE FASE 4
+==================================================
+
+FASE 4 corresponde exclusivamente a:
+
+- Flutter base.
+- Clean Architecture.
+- BLoC/Cubit.
+- GetIt / Dependency Injection.
+- Dio.
+- Networking.
+- JWT interceptor.
+- Refresh token.
+- Coordinación de refresh concurrente.
+- Manejo centralizado de errores.
+- Secure Storage.
+- GoRouter.
+- Splash.
+- Login.
+- Register.
+- Home placeholder.
+- Material 3.
+- Light Theme.
+- Dark Theme.
+- Configuración de entorno/base URL.
+- Localización preparada ES/EN.
+- Widgets base.
+- Tests.
+
+NO debe existir implementación de:
+
+- Motorcycle.
+- Marketplace.
+- Workshop.
+- Theft.
+- Notifications.
+- Chat.
+- Community.
+- News.
+- Referral.
+- VIP.
+- Administration.
+
+==================================================
+1. CLEAN ARCHITECTURE
+==================================================
+
+Verifica que la separación sea realmente:
+
+Presentation
+    ↓
+Domain
+    ↓
+Data
+    ↓
+Core / Infrastructure
+
+Revisar:
+
+- Domain no depende de Flutter/Dio/Identity.
+- Presentation no accede directamente a DataSource.
+- Widgets no llaman directamente a Dio.
+- Widgets no acceden directamente a TokenStorage.
+- Repositories no dependen de BuildContext.
+- Lógica de negocio no está dentro de build().
+- Cubit no contiene lógica de infraestructura.
+- DataSource no contiene lógica de presentación.
+
+Indicar cualquier violación encontrada.
+
+==================================================
+2. NO DUPLICACIÓN DE FASE 3
+==================================================
+
+Verificar que solamente exista una implementación de:
+
+- AuthCubit.
+- AuthRepository.
+- AuthRepositoryImpl.
+- AuthDataSource.
+- TokenStorage.
+- ApiClient/Dio.
+- Auth interceptor.
+- Refresh mechanism.
+
+Buscar clases duplicadas, servicios paralelos o mecanismos equivalentes.
+
+==================================================
+3. AUTH
+==================================================
+
+Verificar:
+
+Login
+Register
+RestoreSession
+Logout
+
+Comprobar que AuthCubit reutilice los componentes existentes de FASE 3.
+
+Verificar estados:
+
+Initial
+Loading/Restoring
+Authenticated
+Unauthenticated
+Failure
+
+No debe mostrarse:
+
+error.toString()
+
+directamente al usuario.
+
+==================================================
+4. LOGOUT
+==================================================
+
+Verificar que el logout sea resiliente.
+
+Debe cumplirse:
+
+Intentar logout remoto
+        ↓
+finally
+        ↓
+limpiar tokens locales
+
+Aunque la API falle, los tokens locales deben eliminarse.
+
+==================================================
+5. REFRESH TOKEN
+==================================================
+
+ESTA ES UNA REVISIÓN CRÍTICA.
+
+Verificar que exista coordinación de refresh concurrente.
+
+Caso:
+
+Request A → 401
+Request B → 401
+Request C → 401
+
+Debe utilizarse un único refresh.
+
+NO debe producir:
+
+A → refresh 1
+B → refresh 2
+C → refresh 3
+
+Verificar:
+
+- Future compartido / mecanismo equivalente.
+- Solo un refresh concurrente.
+- Solicitudes esperando correctamente.
+- Nuevos tokens guardados.
+- Requests originales reintentados.
+- Cada request reintentada máximo una vez.
+- No existen loops infinitos.
+- Refresh endpoint no entra en el mismo ciclo de refresh.
+
+==================================================
+6. REFRESH FALLIDO
+==================================================
+
+Verificar:
+
+Refresh → 401/fallo
+        ↓
+clear TokenStorage
+        ↓
+sesión no autenticada
+        ↓
+Login
+
+No debe quedar refresh token local después de una invalidación de sesión.
+
+==================================================
+7. SEGURIDAD
+==================================================
+
+Buscar cuidadosamente:
+
+- tokens en logs;
+- Authorization en logs;
+- passwords en logs;
+- refresh tokens en logs;
+- access tokens en logs;
+- secretos hardcodeados.
+
+Verificar que flutter_secure_storage sea utilizado para tokens.
+
+Verificar que SharedPreferences NO almacene tokens.
+
+==================================================
+8. NETWORKING
+==================================================
+
+Revisar ApiClient:
+
+- baseUrl;
+- connectTimeout;
+- receiveTimeout;
+- sendTimeout;
+- headers;
+- Authorization;
+- interceptors;
+- manejo de errores.
+
+Verificar que exista una única instancia de Dio/ApiClient.
+
+==================================================
+9. BASE URL
+==================================================
+
+Verificar que no quede una dependencia rígida de:
+
+https://localhost:7001/api
+
+como única configuración.
+
+Debe existir una estrategia razonable para:
+
+- Windows;
+- Android emulator;
+- dispositivo físico;
+- producción.
+
+No debe contener secretos.
+
+==================================================
+10. ERROR HANDLING
+==================================================
+
+Verificar que DioException no llegue directamente a los Widgets.
+
+Comprobar el mapeo de:
+
+400
+401
+403
+404
+409
+422
+429
+500
+503
+timeout
+network
+serialization
+unknown
+
+Verificar separación razonable entre:
+
+Infrastructure error
+    ↓
+Failure
+    ↓
+Cubit state
+    ↓
+UI message
+
+No aceptar sobreingeniería innecesaria.
+
+==================================================
+11. GO ROUTER
+==================================================
+
+Verificar las rutas:
+
+/splash
+/login
+/register
+/home
+
+Comprobar:
+
+No autenticado → Login
+Autenticado → Home
+Splash → restauración
+Logout → Login
+Autenticado intentando Login → Home
+Autenticado intentando Register → Home
+
+GoRouter NO debe leer directamente flutter_secure_storage.
+
+Debe reaccionar al estado de autenticación.
+
+==================================================
+12. SPLASH
+==================================================
+
+Verificar que Splash:
+
+- no contenga lógica de negocio;
+- espere restauración de sesión;
+- permita la redirección adecuada.
+
+==================================================
+13. LOGIN / REGISTER
+==================================================
+
+Verificar que:
+
+- utilizan AuthCubit;
+- no llaman directamente a Dio;
+- no acceden directamente a storage;
+- muestran loading;
+- muestran errores amigables;
+- respetan el contrato existente de FASE 3.
+
+No verificar únicamente que las pantallas existan.
+Revisar las dependencias reales.
+
+==================================================
+14. GETIT
+==================================================
+
+Verificar el orden conceptual:
+
+TokenStorage
+↓
+ApiClient/Dio
+↓
+Interceptors
+↓
+AuthDataSource
+↓
+AuthRepository
+↓
+UseCases
+↓
+AuthCubit
+
+Verificar:
+
+- AuthCubit no sea singleton global mutable;
+- dependencias correctamente registradas;
+- no existan registros duplicados;
+- tests puedan aislar GetIt.
+
+==================================================
+15. THEME
+==================================================
+
+Verificar:
+
+- Material 3.
+- Light Theme.
+- Dark Theme.
+- colores centralizados.
+- identidad visual MotoHub.
+- carbón/negro/blanco/gris/naranja.
+- botones.
+- inputs.
+- cards.
+- AppBar.
+- dialogs/snackbars cuando corresponda.
+
+No evaluar preferencias subjetivas de diseño más allá de la arquitectura definida.
+
+==================================================
+16. LOCALIZACIÓN
+==================================================
+
+Verificar que exista una estructura razonable preparada para:
+
+Español
+Inglés
+
+Los textos iniciales deben estar en español.
+
+No exigir una implementación excesivamente compleja.
+
+==================================================
+17. SERIALIZACIÓN
+==================================================
+
+Si se migraron modelos a json_serializable:
+
+Verificar que:
+
+- nombres JSON no cambiaron;
+- tipos no cambiaron;
+- contrato FASE 3 continúa compatible;
+- archivos generados fueron realmente generados;
+- no se escribió manualmente .g.dart.
+
+Si se mantuvo serialización manual:
+
+Determinar si es aceptable para FASE 4.
+
+No marcarlo como error automáticamente.
+
+==================================================
+18. TESTS
+==================================================
+
+Aunque:
+
+flutter test
+
+ya pasó correctamente, revisar la calidad de los tests.
+
+Verificar especialmente:
+
+- login;
+- register;
+- restore;
+- logout;
+- refresh;
+- refresh fallido;
+- refresh concurrente;
+- retry;
+- ausencia de loops;
+- router;
+- GetIt;
+- TokenStorage.
+
+No aceptar únicamente un test superficial de widget si las partes críticas no están cubiertas.
+
+==================================================
+19. ALCANCE
+==================================================
+
+Confirmar que no se implementó accidentalmente FASE 5 o posteriores.
+
+Buscar features nuevas fuera de FASE 4.
+
+Si existe código de negocio futuro, reportarlo.
+
+==================================================
+20. BACKEND
+==================================================
+
+Confirmar que no se modificó:
+
+Backend/MotoHub.Domain/**
+Backend/MotoHub.Application/**
+Backend/MotoHub.Infrastructure/**
+Backend/MotoHub.Api/**
+
+FASE 3 debe permanecer intacta conceptualmente.
+
+==================================================
+21. CALIDAD DEL CÓDIGO
+==================================================
+
+Revisar:
+
+- SOLID.
+- DRY.
+- responsabilidad única.
+- nombres claros.
+- dependencias correctas.
+- ausencia de código muerto.
+- ausencia de hacks.
+- ausencia de duplicación.
+- manejo correcto de null.
+- manejo correcto de errores.
+- async/await correcto.
+- disposición/cierre de recursos cuando corresponda.
+
+==================================================
+22. CLASIFICACIÓN DE HALLAZGOS
+==================================================
+
+Clasifica cada problema como:
+
+🔴 CRÍTICO
+Impide aprobar FASE 4 o puede causar problemas graves de seguridad, autenticación, arquitectura o pérdida de sesión.
+
+🟠 IMPORTANTE
+Debe corregirse antes del commit porque afecta calidad o funcionalidad relevante.
+
+🟡 MENOR
+No bloquea FASE 4, pero puede mejorarse posteriormente.
+
+🟢 OBSERVACIÓN
+Recomendación futura sin necesidad de corrección ahora.
+
+==================================================
+23. RESULTADO FINAL
+==================================================
+
+Entrega un reporte con exactamente estas secciones:
+
+1. RESUMEN EJECUTIVO
+2. ARQUITECTURA
+3. AUTH
+4. REFRESH TOKEN
+5. REFRESH CONCURRENTE
+6. LOGOUT
+7. NETWORKING
+8. ERROR HANDLING
+9. SEGURIDAD
+10. GO ROUTER
+11. GETIT
+12. THEME
+13. LOCALIZACIÓN
+14. TESTS
+15. ALCANCE DE FASE 4
+16. BACKEND
+17. HALLAZGOS CLASIFICADOS
+18. RECOMENDACIÓN FINAL
+
+La recomendación final debe ser una de:
+
+✅ APROBADO PARA COMMIT
+
+o
+
+⚠️ APROBADO CON CORRECCIONES MENORES
+
+o
+
+❌ NO APROBADO
+
+NO MODIFIQUES ARCHIVOS.
+
+NO CORRIJAS NADA.
+
+NO HAGAS COMMIT.
+
+NO HAGAS PUSH.
+
+Solo realiza el CODE REVIEW y espera.

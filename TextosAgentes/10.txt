@@ -1,0 +1,494 @@
+Estamos iniciando la FASE 4 de MotoHub.
+
+Las FASES 1, 2 y 3 están COMPLETADAS y ya fueron subidas a GitHub.
+
+Quiero mantener estrictamente el siguiente proceso:
+
+1. ANÁLISIS
+2. APROBACIÓN
+3. IMPLEMENTACIÓN
+4. PRUEBAS
+5. CODE REVIEW
+6. CORRECCIONES
+7. COMMIT Y PUSH
+8. RECIÉN DESPUÉS, SIGUIENTE FASE
+
+En este momento estamos únicamente en el PASO 1: ANÁLISIS.
+
+NO MODIFIQUES NINGÚN ARCHIVO.
+NO CREES ARCHIVOS.
+NO ELIMINES ARCHIVOS.
+NO EJECUTES MIGRACIONES.
+NO IMPLEMENTES NADA.
+
+Analiza únicamente el estado actual del repositorio después de la FASE 3.
+
+==================================================
+FASE 4
+==================================================
+
+Objetivo:
+
+Flutter base + navegación + Theme + Dependency Injection + networking.
+
+La FASE 4 debe preparar la infraestructura Flutter para desarrollar posteriormente las funcionalidades de MotoHub.
+
+STACK:
+
+- Flutter 3+
+- Dart
+- Material 3
+- flutter_bloc
+- BLoC/Cubit
+- Equatable
+- GetIt
+- Dio
+- GoRouter
+- Freezed cuando aporte valor
+- JsonSerializable
+- build_runner
+- flutter_secure_storage
+- SharedPreferences únicamente cuando corresponda
+
+Arquitectura:
+
+CLEAN ARCHITECTURE + BLoC/CUBIT + SOLID.
+
+NO utilizar como arquitectura principal:
+
+- Provider
+- GetX
+- Riverpod
+
+==================================================
+1. ANALIZAR ARQUITECTURA ACTUAL
+==================================================
+
+Revisa el código Flutter existente.
+
+Identifica:
+
+- estructura de carpetas
+- capas existentes
+- Core
+- Features
+- Domain
+- Data
+- Presentation
+- DI
+- Router
+- Theme
+- Network
+- Auth
+- Storage
+- Cubits/BLoCs
+- Repositories
+- DataSources
+- UseCases
+
+Determina qué fue creado durante FASE 1 y FASE 3.
+
+==================================================
+2. EVITAR DUPLICACIÓN
+==================================================
+
+Es MUY IMPORTANTE no duplicar componentes creados en FASE 3.
+
+Analiza específicamente:
+
+- AuthCubit/BLoC
+- AuthRepository
+- AuthDataSource
+- token storage
+- access token
+- refresh token
+- logout
+- Dio
+- interceptors
+- Dependency Injection
+- GoRouter
+
+Si algo ya existe y es correcto:
+
+NO LO DUPLIQUES.
+
+Propón reutilizarlo o refactorizarlo solamente si es necesario.
+
+==================================================
+3. CORE
+==================================================
+
+Analizar cómo debe quedar preparado:
+
+lib/core/
+
+con componentes como:
+
+- constants
+- errors
+- extensions
+- network
+- router
+- theme
+- utils
+- widgets
+
+No crear todavía los archivos.
+
+Solo analizar y proponer.
+
+==================================================
+4. THEME
+==================================================
+
+Analizar la configuración de Material 3.
+
+Debe contemplar:
+
+- Light Theme
+- Dark Theme
+- ThemeData centralizado
+- colores centralizados
+- tipografía
+- componentes reutilizables
+
+Identidad visual:
+
+- negro/carbón
+- blanco
+- gris
+- naranja como color principal de acción
+
+La identidad debe ser ORIGINAL.
+
+No copiar exactamente la interfaz de MotoMoto ni de otra aplicación.
+
+==================================================
+5. NAVEGACIÓN
+==================================================
+
+Analizar GoRouter.
+
+Proponer cómo manejar:
+
+- Splash
+- Login
+- Register
+- Home
+- rutas públicas
+- rutas protegidas
+- autenticación
+- redirección
+- logout
+
+Debe quedar preparada la navegación para futuras features.
+
+NO implementar todavía las features de negocio.
+
+==================================================
+6. DEPENDENCY INJECTION
+==================================================
+
+Analizar GetIt.
+
+Proponer cómo registrar:
+
+- Dio
+- Network services
+- Secure Storage
+- Auth services
+- Repositories
+- DataSources
+- UseCases
+- Cubits/BLoCs
+
+Debe evitarse acoplamiento innecesario.
+
+==================================================
+7. NETWORKING
+==================================================
+
+Analizar la infraestructura Dio existente.
+
+Debe soportar:
+
+- Base URL configurable
+- timeout
+- headers
+- access token
+- refresh token
+- errores HTTP
+- interceptors
+
+Analizar especialmente el flujo:
+
+Flutter
+↓
+Dio
+↓
+JWT
+↓
+API
+↓
+401
+↓
+Refresh Token
+↓
+nuevo Access Token
+↓
+reintento de request
+
+Debe evitar loops infinitos.
+
+Los tokens nunca deben aparecer en logs.
+
+==================================================
+8. SECURE STORAGE
+==================================================
+
+Analizar flutter_secure_storage.
+
+Debe utilizarse para información sensible como:
+
+- access token
+- refresh token
+
+SharedPreferences NO debe utilizarse para almacenar tokens sensibles.
+
+==================================================
+9. ERROR HANDLING
+==================================================
+
+Analizar estrategia para:
+
+- Network error
+- Timeout
+- 400
+- 401
+- 403
+- 404
+- 409
+- 422
+- 429
+- 500
+- 503
+- errores desconocidos
+
+Debe existir separación entre:
+
+Infrastructure errors
+y
+Domain/Application Failures.
+
+==================================================
+10. SERIALIZACIÓN
+==================================================
+
+Analizar:
+
+- Freezed
+- JsonSerializable
+- build_runner
+
+Determinar qué debe mantenerse como infraestructura base.
+
+NO crear todavía modelos de todas las features futuras.
+
+==================================================
+11. LOCALIZACIÓN
+==================================================
+
+Analizar preparación para:
+
+- Español
+- Inglés
+
+Regla:
+
+Classes, methods, variables, files y API endpoints:
+INGLÉS.
+
+Textos visibles al usuario:
+ESPAÑOL inicialmente.
+
+==================================================
+12. BASE WIDGETS
+==================================================
+
+Analizar únicamente los widgets base necesarios para la infraestructura:
+
+- Loading
+- Error state
+- Empty state
+- botones/componentes base si realmente aportan valor
+
+NO diseñar todavía las pantallas completas de:
+
+- Perfil
+- Motocicletas
+- Marketplace
+- Talleres
+- Robo
+- Noticias
+- Comunidad
+- VIP
+- Administración
+
+==================================================
+13. CLEAN ARCHITECTURE
+==================================================
+
+Verificar que no exista:
+
+- lógica de negocio en Widgets
+- llamadas Dio desde Pages
+- acceso directo a Storage desde Widgets
+- BuildContext dentro de Repositories
+- lógica de negocio dentro de build()
+- dependencias incorrectas entre capas
+
+Verificar SOLID.
+
+==================================================
+14. COMPATIBILIDAD CON FASE 3
+==================================================
+
+Analizar especialmente la integración entre:
+
+FASE 3 Authentication
+
+y
+
+FASE 4 Flutter Infrastructure.
+
+Verificar:
+
+- Login
+- Register
+- Logout
+- Access Token
+- Refresh Token
+- Token Storage
+- AuthCubit/BLoC
+- AuthRepository
+- AuthDataSource
+- Dio
+- Interceptors
+- GoRouter
+- GetIt
+
+No modificar nada.
+
+==================================================
+15. FEATURES FUTURAS
+==================================================
+
+NO implementar:
+
+- Motorcycle
+- Marketplace
+- Workshop
+- Theft
+- Notification
+- Chat
+- Community
+- News
+- Referral
+- VIP
+- Administration
+
+Solo dejar la infraestructura preparada.
+
+==================================================
+RESULTADO DEL ANÁLISIS
+==================================================
+
+Entrégame un informe con exactamente estas secciones:
+
+1. ESTADO ACTUAL
+
+Qué existe actualmente después de FASE 3.
+
+2. COMPONENTES REUTILIZABLES
+
+Qué podemos reutilizar sin duplicar.
+
+3. PROBLEMAS ENCONTRADOS
+
+Problemas arquitectónicos, técnicos o de seguridad.
+
+4. ARQUITECTURA PROPUESTA PARA FASE 4
+
+Explicar la arquitectura.
+
+5. ÁRBOL DE CARPETAS PROPUESTO
+
+Mostrar el árbol completo de lib/ que debería quedar después de FASE 4.
+
+6. ARCHIVOS A CREAR
+
+Lista exacta.
+
+7. ARCHIVOS A MODIFICAR
+
+Lista exacta.
+
+8. ARCHIVOS QUE NO DEBEN TOCARSE
+
+Especialmente componentes correctos de FASE 3.
+
+9. FLUJO DE AUTENTICACIÓN
+
+Explicar:
+
+Login → Token Storage → Dio → API → 401 → Refresh → Retry → Logout.
+
+10. FLUJO DE NAVEGACIÓN
+
+Explicar cómo funcionará GoRouter.
+
+11. DEPENDENCY INJECTION
+
+Explicar cómo funcionará GetIt.
+
+12. NETWORKING
+
+Explicar Dio e interceptors.
+
+13. ERROR HANDLING
+
+Explicar manejo de errores.
+
+14. SEGURIDAD
+
+Identificar posibles riesgos.
+
+15. TESTS NECESARIOS
+
+Indicar qué pruebas deberán ejecutarse después de implementar.
+
+16. CRITERIOS DE ACEPTACIÓN
+
+Lista concreta de condiciones que deben cumplirse para considerar FASE 4 terminada.
+
+17. RIESGOS
+
+Indicar cualquier riesgo de romper FASE 3.
+
+18. RECOMENDACIÓN FINAL
+
+Indicar si estás listo para implementar FASE 4 o si primero debemos corregir algo.
+
+==================================================
+
+REGLA FINAL:
+
+ESTE PROMPT ES ÚNICAMENTE PARA ANÁLISIS.
+
+NO MODIFIQUES NINGÚN ARCHIVO.
+
+NO IMPLEMENTES.
+
+NO AVANCES A FASE 5.
+
+ESPERA MI APROBACIÓN EXPLÍCITA.
