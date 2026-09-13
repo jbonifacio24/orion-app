@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../../auth/presentation/cubit/auth_cubit.dart';
 
@@ -20,10 +21,13 @@ class HomePage extends StatelessWidget {
         ],
       ),
       body: Center(
-        child: Text(
-          'Bienvenido a MotoHub',
-          style: Theme.of(context).textTheme.headlineSmall,
-        ),
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          Text('Bienvenido a MotoHub', style: Theme.of(context).textTheme.headlineSmall),
+          const SizedBox(height: 24),
+          FilledButton.icon(onPressed: () => context.pushNamed('profile'), icon: const Icon(Icons.person), label: const Text('Mi perfil')),
+          const SizedBox(height: 12),
+          FilledButton.icon(onPressed: () => context.pushNamed('motorcycles'), icon: const Icon(Icons.two_wheeler), label: const Text('Mis motocicletas')),
+        ]),
       ),
     );
   }
