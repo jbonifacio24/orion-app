@@ -1,5 +1,3 @@
-using System.IdentityModel.Tokens.Jwt;
-using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
@@ -9,7 +7,7 @@ namespace MotoHub.Api.Controllers;
 
 [ApiController]
 [Route("api/auth")]
-public sealed class AuthController(IAuthenticationService authenticationService) : ControllerBase
+public sealed class AuthController(IAuthenticationService authenticationService) : CurrentUserControllerBase
 {
     [HttpPost("register")]
     [EnableRateLimiting("auth")]
@@ -73,14 +71,6 @@ public sealed class AuthController(IAuthenticationService authenticationService)
     [Authorize(Roles = "User")]
     [HttpGet("role-check")]
     public IActionResult RoleCheck() => Ok(new { authorized = true, role = "User" });
-
-    private Guid CurrentUserId()
-    {
-        var value = User.FindFirstValue(ClaimTypes.NameIdentifier) ?? User.FindFirstValue(JwtRegisteredClaimNames.Sub);
-        return Guid.TryParse(value, out var userId)
-            ? userId
-            : throw new AuthenticationException("The access token subject is invalid.", 401);
-    }
 
     private string? ClientIp() => HttpContext.Connection.RemoteIpAddress?.ToString();
 }

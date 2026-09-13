@@ -1,5 +1,6 @@
 using System.Text.Json;
 using MotoHub.Application;
+using MotoHub.Application.Errors;
 
 namespace MotoHub.Api.Middleware;
 
@@ -13,15 +14,12 @@ public sealed class ExceptionHandlingMiddleware(RequestDelegate next, ILogger<Ex
         }
         catch (AuthenticationException exception)
         {
-            context.Response.StatusCode = exception.StatusCode;
-            context.Response.ContentType = "application/problem+json";
-            await context.Response.WriteAsync(JsonSerializer.Serialize(new
-            {
-                type = "https://httpstatuses.com/" + exception.StatusCode,
-                title = exception.StatusCode == 401 ? "Unauthorized" : "Authentication error",
-                status = exception.StatusCode,
-                detail = exception.Message
-            }));
+            await WriteProblemAsync(context, exception.StatusCode,
+                exception.StatusCode == 401 ? "Unauthorized" : "Authentication error", exception.Message);
+        }
+        catch (MotoHub.Application.Errors.ApplicationException exception)
+        {
+            await WriteProblemAsync(context, exception.StatusCode, exception.GetType().Name, exception.Message);
         }
         catch (Exception exception)
         {
@@ -30,5 +28,18 @@ public sealed class ExceptionHandlingMiddleware(RequestDelegate next, ILogger<Ex
             context.Response.ContentType = "application/problem+json";
             await context.Response.WriteAsync("{\"title\":\"Internal server error\",\"status\":500}");
         }
+    }
+
+    private static async Task WriteProblemAsync(HttpContext context, int statusCode, string title, string detail)
+    {
+        context.Response.StatusCode = statusCode;
+        context.Response.ContentType = "application/problem+json";
+        await context.Response.WriteAsync(JsonSerializer.Serialize(new
+        {
+            type = "https://httpstatuses.com/" + statusCode,
+            title,
+            status = statusCode,
+            detail
+        }));
     }
 }
