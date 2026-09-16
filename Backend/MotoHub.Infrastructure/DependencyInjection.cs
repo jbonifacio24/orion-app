@@ -4,10 +4,12 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using MotoHub.Application;
 using MotoHub.Application.Motorcycles;
+using MotoHub.Application.Marketplace;
 using MotoHub.Application.Profile;
 using MotoHub.Infrastructure.Persistence;
 using MotoHub.Infrastructure.Security;
 using MotoHub.Infrastructure.Authentication;
+using MotoHub.Infrastructure.Marketplace;
 
 namespace MotoHub.Infrastructure;
 
@@ -46,6 +48,10 @@ public static class DependencyInjection
         services.AddScoped<IAuthenticationService, AuthenticationService>();
         services.AddScoped<IProfileService, Profile.ProfileService>();
         services.AddScoped<IMotorcycleService, Motorcycles.MotorcycleService>();
+        services.AddScoped<IProductService, ProductService>();
+        services.AddScoped<ICategoryService, CategoryService>();
+        services.AddScoped<IFavoriteService, FavoriteService>();
+        services.AddScoped<ProductCategorySeeder>();
         services.AddScoped<IEmailSender, SmtpEmailSender>();
         services.AddSingleton<IPushTokenProtector, AesGcmPushTokenProtector>();
 
