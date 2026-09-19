@@ -4,5 +4,14 @@
   "login": "Sign in",
   "register": "Create account",
   "logout": "Sign out",
-  "homeWelcome": "Welcome to MotoHub"
+  "homeWelcome": "Welcome to MotoHub",
+  "marketplace": "Marketplace",
+  "myProducts": "My products",
+  "favorites": "Favorites",
+  "negotiable": "Negotiable",
+  "productChanged": "This product was recently modified. Refresh the information before saving again.",
+  "reloadProduct": "Refresh product",
+  "createProduct": "Create product",
+  "editProduct": "Edit product",
+  "deleteProduct": "Delete product"
 }

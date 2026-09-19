@@ -14,6 +14,18 @@ import '../../features/motorcycles/presentation/pages/create_motorcycle_page.dar
 import '../../features/motorcycles/presentation/pages/edit_motorcycle_page.dart';
 import '../../features/motorcycles/presentation/pages/motorcycle_detail_page.dart';
 import '../../features/motorcycles/presentation/pages/motorcycles_page.dart';
+import '../../features/marketplace/presentation/cubit/categories_cubit.dart';
+import '../../features/marketplace/presentation/cubit/favorites_cubit.dart';
+import '../../features/marketplace/presentation/cubit/marketplace_cubit.dart';
+import '../../features/marketplace/presentation/cubit/my_products_cubit.dart';
+import '../../features/marketplace/presentation/cubit/product_detail_cubit.dart';
+import '../../features/marketplace/presentation/cubit/product_form_cubit.dart';
+import '../../features/marketplace/presentation/pages/create_product_page.dart';
+import '../../features/marketplace/presentation/pages/edit_product_page.dart';
+import '../../features/marketplace/presentation/pages/favorites_page.dart';
+import '../../features/marketplace/presentation/pages/marketplace_page.dart';
+import '../../features/marketplace/presentation/pages/my_products_page.dart';
+import '../../features/marketplace/presentation/pages/product_detail_page.dart';
 import '../di/injection.dart';
 import 'route_names.dart';
 import 'router_refresh_notifier.dart';
@@ -89,6 +101,12 @@ GoRouter createAppRouter(AuthCubit authCubit) {
       path: '/motorcycles/:id/edit',
       builder: (context, state) => BlocProvider(create: (_) => getIt<MotorcycleCubit>()..loadMotorcycle(state.pathParameters['id']!), child: EditMotorcyclePage(id: state.pathParameters['id']!)),
     ),
+    GoRoute(name: RouteNames.marketplace, path: '/marketplace', builder: (context, state) => MultiBlocProvider(providers: [BlocProvider(create: (_) => getIt<MarketplaceCubit>()), BlocProvider(create: (_) => getIt<CategoriesCubit>())], child: const MarketplacePage())),
+    GoRoute(name: RouteNames.marketplaceProductDetail, path: '/marketplace/products/:id', builder: (context, state) => BlocProvider(create: (_) => getIt<ProductDetailCubit>(), child: ProductDetailPage(id: state.pathParameters['id']!))),
+    GoRoute(name: RouteNames.marketplaceCreate, path: '/marketplace/create', builder: (context, state) => MultiBlocProvider(providers: [BlocProvider(create: (_) => getIt<CategoriesCubit>()), BlocProvider(create: (_) => getIt<ProductFormCubit>(param1: ProductFormMode.create))], child: const CreateProductPage())),
+    GoRoute(name: RouteNames.marketplaceProductEdit, path: '/marketplace/products/:id/edit', builder: (context, state) => MultiBlocProvider(providers: [BlocProvider(create: (_) => getIt<CategoriesCubit>()), BlocProvider(create: (_) => getIt<ProductDetailCubit>())], child: EditProductPage(productId: state.pathParameters['id']!))),
+    GoRoute(name: RouteNames.myProducts, path: '/my-products', builder: (context, state) => BlocProvider(create: (_) => getIt<MyProductsCubit>(), child: const MyProductsPage())),
+    GoRoute(name: RouteNames.favorites, path: '/favorites', builder: (context, state) => BlocProvider(create: (_) => getIt<FavoritesCubit>(), child: const FavoritesPage())),
   ],
   );
 }

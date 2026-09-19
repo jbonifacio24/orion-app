@@ -9,4 +9,10 @@ abstract final class RouteNames {
   static const motorcycleCreate = 'motorcycle-create';
   static const motorcycleDetail = 'motorcycle-detail';
   static const motorcycleEdit = 'motorcycle-edit';
+  static const marketplace = 'marketplace';
+  static const marketplaceProductDetail = 'marketplace-product-detail';
+  static const marketplaceCreate = 'marketplace-create';
+  static const marketplaceProductEdit = 'marketplace-product-edit';
+  static const myProducts = 'my-products';
+  static const favorites = 'favorites';
 }

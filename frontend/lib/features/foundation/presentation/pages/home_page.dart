@@ -27,6 +27,12 @@ class HomePage extends StatelessWidget {
           FilledButton.icon(onPressed: () => context.pushNamed('profile'), icon: const Icon(Icons.person), label: const Text('Mi perfil')),
           const SizedBox(height: 12),
           FilledButton.icon(onPressed: () => context.pushNamed('motorcycles'), icon: const Icon(Icons.two_wheeler), label: const Text('Mis motocicletas')),
+          const SizedBox(height: 12),
+          FilledButton.icon(onPressed: () => context.pushNamed('marketplace'), icon: const Icon(Icons.storefront), label: const Text('Marketplace')),
+          const SizedBox(height: 12),
+          OutlinedButton.icon(onPressed: () => context.pushNamed('my-products'), icon: const Icon(Icons.inventory_2_outlined), label: const Text('Mis productos')),
+          const SizedBox(height: 12),
+          OutlinedButton.icon(onPressed: () => context.pushNamed('favorites'), icon: const Icon(Icons.favorite_border), label: const Text('Favoritos')),
         ]),
       ),
     );
