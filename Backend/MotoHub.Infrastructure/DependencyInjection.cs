@@ -10,6 +10,8 @@ using MotoHub.Infrastructure.Persistence;
 using MotoHub.Infrastructure.Security;
 using MotoHub.Infrastructure.Authentication;
 using MotoHub.Infrastructure.Marketplace;
+using MotoHub.Infrastructure.Storage;
+using MotoHub.Application.Storage;
 
 namespace MotoHub.Infrastructure;
 
@@ -44,6 +46,7 @@ public static class DependencyInjection
         services.Configure<JwtOptions>(configuration.GetSection("Jwt"));
         services.Configure<AuthOptions>(configuration.GetSection("Auth"));
         services.Configure<EmailOptions>(configuration.GetSection("Email"));
+        services.Configure<ProductImageStorageOptions>(configuration.GetSection("ProductImages"));
         services.AddScoped<JwtTokenService>();
         services.AddScoped<IAuthenticationService, AuthenticationService>();
         services.AddScoped<IProfileService, Profile.ProfileService>();
@@ -51,6 +54,9 @@ public static class DependencyInjection
         services.AddScoped<IProductService, ProductService>();
         services.AddScoped<ICategoryService, CategoryService>();
         services.AddScoped<IFavoriteService, FavoriteService>();
+        services.AddScoped<IProductImageService, ProductImageService>();
+        services.AddSingleton<ImageFileValidator>();
+        services.AddSingleton<IProductImageStorage, LocalProductImageStorage>();
         services.AddScoped<ProductCategorySeeder>();
         services.AddScoped<IEmailSender, SmtpEmailSender>();
         services.AddSingleton<IPushTokenProtector, AesGcmPushTokenProtector>();

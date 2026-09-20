@@ -8,6 +8,9 @@ using MotoHub.Infrastructure.Authentication;
 using System.Text;
 using System.Threading.RateLimiting;
 using MotoHub.Infrastructure;
+using MotoHub.Infrastructure.Storage;
+using Microsoft.Extensions.FileProviders;
+using Microsoft.Extensions.Options;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -76,6 +79,15 @@ builder.Services.AddCors(options =>
 });
 
 var app = builder.Build();
+
+var imageStorageOptions = app.Services.GetRequiredService<IOptions<ProductImageStorageOptions>>().Value;
+var imageStorageRoot = Path.GetFullPath(Path.Combine(app.Environment.ContentRootPath, imageStorageOptions.StorageRoot));
+Directory.CreateDirectory(imageStorageRoot);
+app.UseStaticFiles(new StaticFileOptions
+{
+    FileProvider = new PhysicalFileProvider(imageStorageRoot),
+    RequestPath = imageStorageOptions.PublicBasePath
+});
 
 app.UseMiddleware<ExceptionHandlingMiddleware>();
 
