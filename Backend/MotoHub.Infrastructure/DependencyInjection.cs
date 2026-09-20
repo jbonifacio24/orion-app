@@ -12,6 +12,8 @@ using MotoHub.Infrastructure.Authentication;
 using MotoHub.Infrastructure.Marketplace;
 using MotoHub.Infrastructure.Storage;
 using MotoHub.Application.Storage;
+using MotoHub.Application.Workshops;
+using MotoHub.Infrastructure.Workshops;
 
 namespace MotoHub.Infrastructure;
 
@@ -55,6 +57,7 @@ public static class DependencyInjection
         services.AddScoped<ICategoryService, CategoryService>();
         services.AddScoped<IFavoriteService, FavoriteService>();
         services.AddScoped<IProductImageService, ProductImageService>();
+        services.AddScoped<IWorkshopService, WorkshopService>();
         services.AddSingleton<ImageFileValidator>();
         services.AddSingleton<IProductImageStorage, LocalProductImageStorage>();
         services.AddScoped<ProductCategorySeeder>();
