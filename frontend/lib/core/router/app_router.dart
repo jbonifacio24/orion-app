@@ -28,6 +28,10 @@ import '../../features/marketplace/presentation/pages/marketplace_page.dart';
 import '../../features/marketplace/presentation/pages/my_products_page.dart';
 import '../../features/marketplace/presentation/pages/product_detail_page.dart';
 import '../../features/marketplace/presentation/pages/manage_product_images_page.dart';
+import '../../features/workshops/presentation/cubit/workshop_detail_cubit.dart';
+import '../../features/workshops/presentation/cubit/workshops_cubit.dart';
+import '../../features/workshops/presentation/pages/workshop_detail_page.dart';
+import '../../features/workshops/presentation/pages/workshops_page.dart';
 import '../di/injection.dart';
 import 'route_names.dart';
 import 'router_refresh_notifier.dart';
@@ -110,6 +114,8 @@ GoRouter createAppRouter(AuthCubit authCubit) {
     GoRoute(name: RouteNames.marketplaceProductImages, path: '/marketplace/products/:id/images', builder: (context, state) => BlocProvider(create: (_) => getIt<ProductImagesCubit>(), child: ManageProductImagesPage(productId: state.pathParameters['id']!, fromCreate: state.uri.queryParameters['from'] == 'create'))),
     GoRoute(name: RouteNames.myProducts, path: '/my-products', builder: (context, state) => BlocProvider(create: (_) => getIt<MyProductsCubit>(), child: const MyProductsPage())),
     GoRoute(name: RouteNames.favorites, path: '/favorites', builder: (context, state) => BlocProvider(create: (_) => getIt<FavoritesCubit>(), child: const FavoritesPage())),
+    GoRoute(name: RouteNames.workshops, path: '/workshops', builder: (context, state) => BlocProvider(create: (_) => getIt<WorkshopsCubit>(), child: const WorkshopsPage())),
+    GoRoute(name: RouteNames.workshopDetail, path: '/workshops/:id', builder: (context, state) => BlocProvider(create: (_) => getIt<WorkshopDetailCubit>(), child: WorkshopDetailPage(id: state.pathParameters['id']!))),
   ],
   );
 }

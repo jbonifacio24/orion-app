@@ -48,6 +48,13 @@ import '../../features/marketplace/presentation/cubit/my_products_cubit.dart';
 import '../../features/marketplace/presentation/cubit/product_detail_cubit.dart';
 import '../../features/marketplace/presentation/cubit/product_form_cubit.dart';
 import '../../features/marketplace/presentation/cubit/product_images_cubit.dart';
+import '../../features/workshops/data/datasources/workshop_data_source.dart';
+import '../../features/workshops/data/repositories/workshop_repository_impl.dart';
+import '../../features/workshops/domain/repositories/workshop_repository.dart';
+import '../../features/workshops/domain/usecases/get_workshop_detail.dart';
+import '../../features/workshops/domain/usecases/get_workshops.dart';
+import '../../features/workshops/presentation/cubit/workshop_detail_cubit.dart';
+import '../../features/workshops/presentation/cubit/workshops_cubit.dart';
 
 final GetIt getIt = GetIt.instance;
 
@@ -115,4 +122,10 @@ Future<void> configureDependencies() async {
   if (!getIt.isRegistered<ProductDetailCubit>()) getIt.registerFactory(() => ProductDetailCubit(getIt<GetProductDetail>(), getIt<AddFavorite>(), getIt<RemoveFavorite>(), getIt<DeleteProduct>()));
   if (!getIt.isRegistered<ProductFormCubit>()) getIt.registerFactoryParam<ProductFormCubit, ProductFormMode, Product?>((mode, initial) => ProductFormCubit(getIt<CreateProduct>(), getIt<UpdateProduct>(), mode: mode, initial: initial));
   if (!getIt.isRegistered<ProductImagesCubit>()) getIt.registerFactory(() => ProductImagesCubit(getIt<GetProductDetail>(), getIt<IProductImagePicker>(), getIt<UploadProductImage>(), getIt<DeleteProductImage>(), getIt<SetPrimaryProductImage>()));
+  if (!getIt.isRegistered<WorkshopDataSource>()) getIt.registerLazySingleton(() => WorkshopDataSource(getIt<ApiClient>().dio));
+  if (!getIt.isRegistered<WorkshopRepository>()) getIt.registerLazySingleton<WorkshopRepository>(() => WorkshopRepositoryImpl(getIt<WorkshopDataSource>()));
+  if (!getIt.isRegistered<GetWorkshops>()) getIt.registerLazySingleton(() => GetWorkshops(getIt<WorkshopRepository>()));
+  if (!getIt.isRegistered<GetWorkshopDetail>()) getIt.registerLazySingleton(() => GetWorkshopDetail(getIt<WorkshopRepository>()));
+  if (!getIt.isRegistered<WorkshopsCubit>()) getIt.registerFactory(() => WorkshopsCubit(getIt<GetWorkshops>()));
+  if (!getIt.isRegistered<WorkshopDetailCubit>()) getIt.registerFactory(() => WorkshopDetailCubit(getIt<GetWorkshopDetail>()));
 }

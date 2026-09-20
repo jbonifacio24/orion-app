@@ -16,4 +16,6 @@ abstract final class RouteNames {
   static const marketplaceProductImages = 'marketplace-product-images';
   static const myProducts = 'my-products';
   static const favorites = 'favorites';
+  static const workshops = 'workshops';
+  static const workshopDetail = 'workshop-detail';
 }

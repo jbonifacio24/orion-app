@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../auth/presentation/cubit/auth_cubit.dart';
+import '../../../../core/localization/app_localizations.dart';
 
 class HomePage extends StatelessWidget {
   const HomePage({super.key});
@@ -29,6 +30,8 @@ class HomePage extends StatelessWidget {
           FilledButton.icon(onPressed: () => context.pushNamed('motorcycles'), icon: const Icon(Icons.two_wheeler), label: const Text('Mis motocicletas')),
           const SizedBox(height: 12),
           FilledButton.icon(onPressed: () => context.pushNamed('marketplace'), icon: const Icon(Icons.storefront), label: const Text('Marketplace')),
+          const SizedBox(height: 12),
+          FilledButton.icon(onPressed: () => context.pushNamed('workshops'), icon: const Icon(Icons.build_circle_outlined), label: const Text(AppLocalizations.workshops)),
           const SizedBox(height: 12),
           OutlinedButton.icon(onPressed: () => context.pushNamed('my-products'), icon: const Icon(Icons.inventory_2_outlined), label: const Text('Mis productos')),
           const SizedBox(height: 12),
