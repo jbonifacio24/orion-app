@@ -60,6 +60,12 @@ class _AuthInterceptor extends Interceptor {
       }
       request.extra['retried'] = true;
       request.headers['Authorization'] = 'Bearer $accessToken';
+      final rebuildMultipartData = request.extra['rebuildMultipartData'];
+      if (rebuildMultipartData is Function) {
+        request.data = rebuildMultipartData();
+        request.headers.remove(Headers.contentLengthHeader);
+        request.headers.remove(Headers.contentTypeHeader);
+      }
       handler.resolve(await _dio.fetch(request));
     } catch (_) {
       await _invalidateSession();

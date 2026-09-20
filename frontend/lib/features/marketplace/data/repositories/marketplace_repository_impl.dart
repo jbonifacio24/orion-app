@@ -4,6 +4,8 @@ import '../../domain/entities/product.dart';
 import '../../domain/entities/product_category.dart';
 import '../../domain/entities/product_detail.dart';
 import '../../domain/entities/product_filters.dart';
+import '../../domain/entities/product_image.dart';
+import '../../domain/entities/product_image_upload.dart';
 import '../../domain/repositories/marketplace_repository.dart';
 import '../datasources/marketplace_data_source.dart';
 import '../models/marketplace_models.dart';
@@ -41,6 +43,15 @@ class MarketplaceRepositoryImpl implements MarketplaceRepository {
 
   @override
   Future<void> removeFavorite(String id) => _map(() => _dataSource.removeFavorite(id));
+
+  @override
+  Future<ProductImage> uploadProductImage(String productId, ProductImageUpload upload) => _map(() => _dataSource.uploadProductImage(productId, upload));
+
+  @override
+  Future<void> deleteProductImage(String productId, String imageId) => _map(() => _dataSource.deleteProductImage(productId, imageId));
+
+  @override
+  Future<ProductImage> setPrimaryProductImage(String productId, String imageId) => _map(() => _dataSource.setPrimaryProductImage(productId, imageId));
 
   Future<T> _map<T>(Future<T> Function() action) async {
     try {

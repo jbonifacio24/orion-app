@@ -13,6 +13,7 @@ abstract final class RouteNames {
   static const marketplaceProductDetail = 'marketplace-product-detail';
   static const marketplaceCreate = 'marketplace-create';
   static const marketplaceProductEdit = 'marketplace-product-edit';
+  static const marketplaceProductImages = 'marketplace-product-images';
   static const myProducts = 'my-products';
   static const favorites = 'favorites';
 }

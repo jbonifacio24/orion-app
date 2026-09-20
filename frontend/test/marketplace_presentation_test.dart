@@ -9,6 +9,7 @@ import 'package:motohub/features/marketplace/domain/entities/product_category.da
 import 'package:motohub/features/marketplace/domain/entities/product_detail.dart';
 import 'package:motohub/features/marketplace/domain/entities/product_filters.dart';
 import 'package:motohub/features/marketplace/domain/entities/product_image.dart';
+import 'package:motohub/features/marketplace/domain/entities/product_image_upload.dart';
 import 'package:motohub/features/marketplace/domain/entities/seller_summary.dart';
 import 'package:motohub/features/marketplace/domain/repositories/marketplace_repository.dart';
 import 'package:motohub/features/marketplace/domain/usecases/add_favorite.dart';
@@ -191,6 +192,15 @@ class _FakeMarketplaceRepository implements MarketplaceRepository {
 
   @override
   Future<List<Product>> getFavorites() => throw UnimplementedError();
+
+  @override
+  Future<ProductImage> uploadProductImage(String productId, ProductImageUpload upload) => throw UnimplementedError();
+
+  @override
+  Future<void> deleteProductImage(String productId, String imageId) => throw UnimplementedError();
+
+  @override
+  Future<ProductImage> setPrimaryProductImage(String productId, String imageId) => throw UnimplementedError();
 }
 
 final _detail = ProductDetail(

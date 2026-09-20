@@ -1,6 +1,7 @@
 import 'package:dio/dio.dart';
 
 import '../../domain/entities/product_filters.dart';
+import '../../domain/entities/product_image_upload.dart';
 import '../models/marketplace_models.dart';
 
 class MarketplaceDataSource {
@@ -33,6 +34,28 @@ class MarketplaceDataSource {
   }
 
   Future<void> delete(String id) => _dio.delete<void>('/api/products/$id');
+
+  Future<ProductImageModel> uploadProductImage(String productId, ProductImageUpload upload) async {
+    final response = await _dio.post<Map<String, dynamic>>(
+      '/api/products/$productId/images',
+      data: FormData.fromMap({
+        'file': MultipartFile.fromBytes(upload.bytes, filename: upload.fileName),
+      }),
+      options: Options(extra: {
+        'rebuildMultipartData': () => FormData.fromMap({
+              'file': MultipartFile.fromBytes(upload.bytes, filename: upload.fileName),
+            }),
+      }),
+    );
+    return ProductImageModel.fromJson(response.data!);
+  }
+
+  Future<void> deleteProductImage(String productId, String imageId) => _dio.delete<void>('/api/products/$productId/images/$imageId');
+
+  Future<ProductImageModel> setPrimaryProductImage(String productId, String imageId) async {
+    final response = await _dio.put<Map<String, dynamic>>('/api/products/$productId/images/$imageId/primary');
+    return ProductImageModel.fromJson(response.data!);
+  }
 
   Future<List<ProductCategoryModel>> getCategories() async {
     final response = await _dio.get<List<dynamic>>('/api/categories');

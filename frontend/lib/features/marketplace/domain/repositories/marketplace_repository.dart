@@ -3,6 +3,8 @@ import '../entities/product.dart';
 import '../entities/product_category.dart';
 import '../entities/product_filters.dart';
 import '../entities/product_detail.dart';
+import '../entities/product_image.dart';
+import '../entities/product_image_upload.dart';
 
 abstract interface class MarketplaceRepository {
   Future<PagedProducts> getProducts(ProductFilters filters, {int page = 1});
@@ -15,4 +17,7 @@ abstract interface class MarketplaceRepository {
   Future<List<Product>> getFavorites();
   Future<void> addFavorite(String id);
   Future<void> removeFavorite(String id);
+  Future<ProductImage> uploadProductImage(String productId, ProductImageUpload upload);
+  Future<void> deleteProductImage(String productId, String imageId);
+  Future<ProductImage> setPrimaryProductImage(String productId, String imageId);
 }

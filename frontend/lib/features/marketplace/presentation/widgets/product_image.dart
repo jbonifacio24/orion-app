@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../../core/network/media_url_resolver.dart';
 import '../../domain/entities/product_image.dart' as domain;
 
 String? selectProductImageUrl(List<domain.ProductImage> images) {
@@ -19,7 +20,7 @@ class ProductImage extends StatelessWidget {
         width: double.infinity,
         child: url.isEmpty
             ? const _Placeholder()
-            : Image.network(url, fit: BoxFit.cover, errorBuilder: (_, __, ___) => const _Placeholder()),
+            : Image.network(MediaUrlResolver.resolve(url), fit: BoxFit.cover, errorBuilder: (_, __, ___) => const _Placeholder()),
       );
 }
 
