@@ -67,5 +67,9 @@
   "thursday": "Thursday",
   "friday": "Friday",
   "saturday": "Saturday",
-  "minutes": "min"
+  "minutes": "min",
+  "listView": "List",
+  "mapView": "Map",
+  "workshopsViewMode": "Workshop view mode",
+  "noWorkshopsWithLocation": "No workshops have an available location."
 }

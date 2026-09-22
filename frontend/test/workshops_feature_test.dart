@@ -1,6 +1,9 @@
 import 'dart:async';
 
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:flutter_map/flutter_map.dart';
 import 'package:motohub/core/error/app_failure.dart';
 import 'package:motohub/features/workshops/data/models/workshop_models.dart';
 import 'package:motohub/features/workshops/domain/entities/paged_workshops.dart';
@@ -12,7 +15,9 @@ import 'package:motohub/features/workshops/domain/usecases/get_workshop_detail.d
 import 'package:motohub/features/workshops/domain/usecases/get_workshops.dart';
 import 'package:motohub/features/workshops/presentation/cubit/workshop_detail_cubit.dart';
 import 'package:motohub/features/workshops/presentation/cubit/workshops_cubit.dart';
-import 'package:motohub/features/workshops/presentation/widgets/workshop_card.dart';
+import 'package:motohub/features/workshops/presentation/models/workshop_map_marker_model.dart';
+import 'package:motohub/features/workshops/presentation/pages/workshops_page.dart';
+import 'package:motohub/features/workshops/presentation/utils/workshop_coordinates.dart';
 
 void main() {
   test('maps list and detail JSON including nullable numeric and temporal fields', () {
@@ -66,6 +71,51 @@ void main() {
     expect(validWorkshopCoordinates(null, 0), isFalse);
     expect(validWorkshopCoordinates(-90.1, 0), isFalse);
     expect(validWorkshopCoordinates(0, 180.1), isFalse);
+    expect(validWorkshopCoordinates(double.nan, 0), isFalse);
+    expect(validWorkshopCoordinates(0, double.infinity), isFalse);
+    expect(validWorkshopCoordinates(0, double.negativeInfinity), isFalse);
+  });
+
+  test('maps valid workshops to neutral markers and excludes invalid coordinates', () {
+    final markers = WorkshopMapMarkerModel.fromWorkshops(const [
+      Workshop(id: 'valid', name: 'Taller válido', description: null, address: null, city: null, latitude: -12, longitude: -77, averageRating: null, reviewCount: 0),
+      Workshop(id: 'null-latitude', name: 'Sin latitud', description: null, address: null, city: null, latitude: null, longitude: -77, averageRating: null, reviewCount: 0),
+      Workshop(id: 'invalid-latitude', name: 'Latitud inválida', description: null, address: null, city: null, latitude: 90.1, longitude: 0, averageRating: null, reviewCount: 0),
+      Workshop(id: 'invalid-longitude', name: 'Longitud inválida', description: null, address: null, city: null, latitude: 0, longitude: -180.1, averageRating: null, reviewCount: 0),
+      Workshop(id: 'nan', name: 'No finito', description: null, address: null, city: null, latitude: double.nan, longitude: 0, averageRating: null, reviewCount: 0),
+    ]);
+
+    expect(markers, hasLength(1));
+    expect(markers.single.workshopId, 'valid');
+    expect(markers.single.title, 'Taller válido');
+    expect(markers.single.latitude, -12);
+    expect(markers.single.longitude, -77);
+    expect(WorkshopMapMarkerModel.fromWorkshops(const []), isEmpty);
+    expect(WorkshopMapMarkerModel.fromWorkshops(const [
+      Workshop(id: 'second', name: 'Segundo', description: null, address: null, city: null, latitude: 1, longitude: 2, averageRating: null, reviewCount: 0),
+      Workshop(id: 'third', name: 'Tercero', description: null, address: null, city: null, latitude: 3, longitude: 4, averageRating: null, reviewCount: 0),
+    ]), hasLength(2));
+  });
+
+  testWidgets('workshops view toggles between list and map without recreating the cubit', (tester) async {
+    const workshop = Workshop(id: 'visible', name: 'Taller visible', description: null, address: null, city: null, latitude: -12, longitude: -77, averageRating: null, reviewCount: 0);
+    final repository = _FakeWorkshopRepository(onList: (_, __) => Future.value(const PagedWorkshops(items: [workshop], page: 1, pageSize: 20, totalCount: 1, totalPages: 1)));
+    final cubit = WorkshopsCubit(GetWorkshops(repository));
+    addTearDown(cubit.close);
+
+    await tester.pumpWidget(BlocProvider.value(value: cubit, child: const MaterialApp(home: WorkshopsPage())));
+    await tester.pump();
+    expect(find.text('Taller visible'), findsOneWidget);
+
+    await tester.tap(find.text('Mapa'));
+    await tester.pump();
+    expect(find.byType(FlutterMap), findsOneWidget);
+    expect(cubit.state.items.single.id, 'visible');
+
+    await tester.tap(find.text('Lista'));
+    await tester.pump();
+    expect(find.text('Taller visible'), findsOneWidget);
+    expect(cubit.state.items.single.id, 'visible');
   });
 
   test('workshops cubit ignores stale search responses', () async {

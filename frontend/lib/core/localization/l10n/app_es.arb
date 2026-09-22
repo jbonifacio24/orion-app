@@ -67,5 +67,9 @@
   "thursday": "Jueves",
   "friday": "Viernes",
   "saturday": "Sábado",
-  "minutes": "min"
+  "minutes": "min",
+  "listView": "Lista",
+  "mapView": "Mapa",
+  "workshopsViewMode": "Modo de vista de talleres",
+  "noWorkshopsWithLocation": "No hay talleres con ubicación disponible."
 }

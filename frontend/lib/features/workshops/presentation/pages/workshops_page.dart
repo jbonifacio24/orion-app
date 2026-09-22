@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../../../core/localization/app_localizations.dart';
 import '../cubit/workshops_cubit.dart';
 import '../widgets/workshop_card.dart';
+import '../widgets/workshop_map_view.dart';
 
 class WorkshopsPage extends StatefulWidget {
   const WorkshopsPage({super.key});
@@ -16,6 +17,7 @@ class _WorkshopsPageState extends State<WorkshopsPage> {
   late final _search = TextEditingController();
   late final _city = TextEditingController();
   late final _scroll = ScrollController();
+  bool _showMap = false;
 
   @override
   void initState() {
@@ -44,18 +46,47 @@ class _WorkshopsPageState extends State<WorkshopsPage> {
       body: Column(children: [
         Padding(padding: const EdgeInsets.fromLTRB(16, 16, 16, 8), child: TextField(controller: _search, onChanged: context.read<WorkshopsCubit>().searchChanged, decoration: const InputDecoration(prefixIcon: Icon(Icons.search), labelText: AppLocalizations.searchWorkshops))),
         Padding(padding: const EdgeInsets.fromLTRB(16, 0, 16, 8), child: TextField(controller: _city, onChanged: context.read<WorkshopsCubit>().cityChanged, decoration: const InputDecoration(prefixIcon: Icon(Icons.location_city), labelText: AppLocalizations.city))),
-        Expanded(child: state.isInitialLoading && state.items.isEmpty
-            ? const Center(child: CircularProgressIndicator())
-            : state.failure != null && state.items.isEmpty
-                ? _Failure(message: state.failure!, onRetry: context.read<WorkshopsCubit>().retry)
-                : state.items.isEmpty
-                    ? const Center(child: Text(AppLocalizations.noWorkshops))
-                    : RefreshIndicator(onRefresh: context.read<WorkshopsCubit>().refresh, child: ListView.builder(controller: _scroll, padding: const EdgeInsets.fromLTRB(16, 0, 16, 24), itemCount: state.items.length + (state.isLoadingMore || state.loadingMoreFailure != null ? 1 : 0), itemBuilder: (context, index) {
-                        if (index == state.items.length) return state.loadingMoreFailure != null ? _Failure(message: state.loadingMoreFailure!, onRetry: context.read<WorkshopsCubit>().retryLoadMore) : const Padding(padding: EdgeInsets.all(20), child: Center(child: CircularProgressIndicator()));
-                        final workshop = state.items[index];
-                        return Padding(padding: const EdgeInsets.only(bottom: 12), child: WorkshopCard(workshop: workshop, onTap: () => context.pushNamed('workshop-detail', pathParameters: {'id': workshop.id})));
-                      }))),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+          child: Semantics(
+            label: AppLocalizations.workshopsViewMode,
+            child: SegmentedButton<bool>(
+              segments: const [
+                ButtonSegment(value: false, icon: Icon(Icons.list), label: Text(AppLocalizations.listView)),
+                ButtonSegment(value: true, icon: Icon(Icons.map_outlined), label: Text(AppLocalizations.mapView)),
+              ],
+              selected: {_showMap},
+              onSelectionChanged: (selection) => setState(() => _showMap = selection.single),
+            ),
+          ),
+        ),
+        Expanded(child: _buildContent(context, state)),
       ]),
+    );
+  }
+
+  Widget _buildContent(BuildContext context, WorkshopsState state) {
+    if (state.isInitialLoading && state.items.isEmpty) return const Center(child: CircularProgressIndicator());
+    if (state.failure != null && state.items.isEmpty) return _Failure(message: state.failure!, onRetry: context.read<WorkshopsCubit>().retry);
+    if (_showMap) {
+      return WorkshopMapView(
+        workshops: state.items,
+        onWorkshopTap: (id) => context.pushNamed('workshop-detail', pathParameters: {'id': id}),
+      );
+    }
+    if (state.items.isEmpty) return const Center(child: Text(AppLocalizations.noWorkshops));
+    return RefreshIndicator(
+      onRefresh: context.read<WorkshopsCubit>().refresh,
+      child: ListView.builder(
+        controller: _scroll,
+        padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
+        itemCount: state.items.length + (state.isLoadingMore || state.loadingMoreFailure != null ? 1 : 0),
+        itemBuilder: (context, index) {
+          if (index == state.items.length) return state.loadingMoreFailure != null ? _Failure(message: state.loadingMoreFailure!, onRetry: context.read<WorkshopsCubit>().retryLoadMore) : const Padding(padding: EdgeInsets.all(20), child: Center(child: CircularProgressIndicator()));
+          final workshop = state.items[index];
+          return Padding(padding: const EdgeInsets.only(bottom: 12), child: WorkshopCard(workshop: workshop, onTap: () => context.pushNamed('workshop-detail', pathParameters: {'id': workshop.id})));
+        },
+      ),
     );
   }
 }

@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../../core/localization/app_localizations.dart';
 import '../../domain/entities/workshop_detail.dart';
-import 'workshop_card.dart';
+import '../utils/workshop_coordinates.dart';
 
 class WorkshopLocation extends StatelessWidget {
   const WorkshopLocation({required this.workshop, super.key});

@@ -60,4 +60,8 @@ abstract final class AppLocalizations {
   static const friday = 'Viernes';
   static const saturday = 'Sábado';
   static const minutes = 'min';
+  static const listView = 'Lista';
+  static const mapView = 'Mapa';
+  static const workshopsViewMode = 'Modo de vista de talleres';
+  static const noWorkshopsWithLocation = 'No hay talleres con ubicación disponible.';
 }

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../../core/localization/app_localizations.dart';
 import '../../domain/entities/workshop.dart';
+import '../utils/workshop_coordinates.dart';
 
 class WorkshopCard extends StatelessWidget {
   const WorkshopCard({required this.workshop, required this.onTap, super.key});
@@ -50,5 +51,3 @@ class WorkshopCard extends StatelessWidget {
   }
 }
 
-bool validWorkshopCoordinates(double? latitude, double? longitude) =>
-    latitude != null && longitude != null && latitude >= -90 && latitude <= 90 && longitude >= -180 && longitude <= 180;
