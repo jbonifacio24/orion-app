@@ -44,7 +44,8 @@ public enum NotificationType
     Security,
     Message,
     Social,
-    Marketplace
+    Marketplace,
+    Theft
 }
 
 public enum ConversationType

@@ -175,7 +175,9 @@ Phases:
 17. Docker
 18. Optimization and security
 
-Only implement the phase explicitly requested by the user. Never advance automatically.
+Only implement the phase explicitly requested by the user. Never advance automatically to a new phase.
+Within the explicitly requested phase, the Developer may continue automatically
+after architectural analysis when no blocking architectural decision remains.
 
 FEATURE IMPLEMENTATION ORDER
 
@@ -206,4 +208,6 @@ At the end:
 - report analyze/test/build results
 - identify remaining issues
 
-If the requested change conflicts with Clean Architecture, SOLID or security, explain the conflict and implement the compliant alternative.
+If the requested change conflicts with Clean Architecture, SOLID or security,
+explain the conflict. Stop and request an explicit user decision when the
+conflict is blocking; otherwise implement the compliant alternative.

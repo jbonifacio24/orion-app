@@ -32,6 +32,14 @@ import '../../features/workshops/presentation/cubit/workshop_detail_cubit.dart';
 import '../../features/workshops/presentation/cubit/workshops_cubit.dart';
 import '../../features/workshops/presentation/pages/workshop_detail_page.dart';
 import '../../features/workshops/presentation/pages/workshops_page.dart';
+import '../../features/theft/presentation/cubit/my_theft_reports_cubit.dart';
+import '../../features/theft/presentation/cubit/theft_report_detail_cubit.dart';
+import '../../features/theft/presentation/cubit/theft_report_form_cubit.dart';
+import '../../features/theft/presentation/cubit/theft_reports_cubit.dart';
+import '../../features/theft/presentation/pages/create_theft_report_page.dart';
+import '../../features/theft/presentation/pages/my_theft_reports_page.dart';
+import '../../features/theft/presentation/pages/theft_report_detail_page.dart';
+import '../../features/theft/presentation/pages/theft_reports_page.dart';
 import '../di/injection.dart';
 import 'route_names.dart';
 import 'router_refresh_notifier.dart';
@@ -116,6 +124,14 @@ GoRouter createAppRouter(AuthCubit authCubit) {
     GoRoute(name: RouteNames.favorites, path: '/favorites', builder: (context, state) => BlocProvider(create: (_) => getIt<FavoritesCubit>(), child: const FavoritesPage())),
     GoRoute(name: RouteNames.workshops, path: '/workshops', builder: (context, state) => BlocProvider(create: (_) => getIt<WorkshopsCubit>(), child: const WorkshopsPage())),
     GoRoute(name: RouteNames.workshopDetail, path: '/workshops/:id', builder: (context, state) => BlocProvider(create: (_) => getIt<WorkshopDetailCubit>(), child: WorkshopDetailPage(id: state.pathParameters['id']!))),
+    ...theftReportRoutes(),
   ],
   );
 }
+
+List<RouteBase> theftReportRoutes() => [
+      GoRoute(name: RouteNames.theftReports, path: '/theft-reports', builder: (context, state) => BlocProvider(create: (_) => getIt<TheftReportsCubit>(), child: const TheftReportsPage())),
+      GoRoute(name: RouteNames.myTheftReports, path: '/theft-reports/mine', builder: (context, state) => BlocProvider(create: (_) => getIt<MyTheftReportsCubit>(), child: const MyTheftReportsPage())),
+      GoRoute(name: RouteNames.theftReportCreate, path: '/theft-reports/create', builder: (context, state) => BlocProvider(create: (_) => getIt<TheftReportFormCubit>(), child: const CreateTheftReportPage())),
+      GoRoute(name: RouteNames.theftReportDetail, path: '/theft-reports/:id', builder: (context, state) => BlocProvider(create: (_) => getIt<TheftReportDetailCubit>(), child: TheftReportDetailPage(id: state.pathParameters['id']!))),
+    ];

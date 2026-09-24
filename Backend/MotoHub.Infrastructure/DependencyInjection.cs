@@ -14,6 +14,10 @@ using MotoHub.Infrastructure.Storage;
 using MotoHub.Application.Storage;
 using MotoHub.Application.Workshops;
 using MotoHub.Infrastructure.Workshops;
+using MotoHub.Application.TheftReports;
+using MotoHub.Infrastructure.TheftReports;
+using MotoHub.Application.Notifications;
+using MotoHub.Infrastructure.Notifications;
 
 namespace MotoHub.Infrastructure;
 
@@ -51,6 +55,7 @@ public static class DependencyInjection
         services.Configure<ProductImageStorageOptions>(configuration.GetSection("ProductImages"));
         services.AddScoped<JwtTokenService>();
         services.AddScoped<IAuthenticationService, AuthenticationService>();
+        services.AddScoped<DevelopmentUserSeeder>();
         services.AddScoped<IProfileService, Profile.ProfileService>();
         services.AddScoped<IMotorcycleService, Motorcycles.MotorcycleService>();
         services.AddScoped<IProductService, ProductService>();
@@ -58,6 +63,8 @@ public static class DependencyInjection
         services.AddScoped<IFavoriteService, FavoriteService>();
         services.AddScoped<IProductImageService, ProductImageService>();
         services.AddScoped<IWorkshopService, WorkshopService>();
+        services.AddScoped<ITheftReportService, TheftReportService>();
+        services.AddScoped<INotificationService, NotificationService>();
         services.AddSingleton<ImageFileValidator>();
         services.AddSingleton<IProductImageStorage, LocalProductImageStorage>();
         services.AddScoped<ProductCategorySeeder>();

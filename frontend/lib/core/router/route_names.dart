@@ -18,4 +18,8 @@ abstract final class RouteNames {
   static const favorites = 'favorites';
   static const workshops = 'workshops';
   static const workshopDetail = 'workshop-detail';
+  static const theftReports = 'theft-reports';
+  static const theftReportDetail = 'theft-report-detail';
+  static const myTheftReports = 'my-theft-reports';
+  static const theftReportCreate = 'theft-report-create';
 }

@@ -80,6 +80,12 @@ builder.Services.AddCors(options =>
 
 var app = builder.Build();
 
+if (app.Environment.IsDevelopment())
+{
+    await using var scope = app.Services.CreateAsyncScope();
+    await scope.ServiceProvider.GetRequiredService<DevelopmentUserSeeder>().SeedAsync();
+}
+
 var imageStorageOptions = app.Services.GetRequiredService<IOptions<ProductImageStorageOptions>>().Value;
 var imageStorageRoot = Path.GetFullPath(Path.Combine(app.Environment.ContentRootPath, imageStorageOptions.StorageRoot));
 Directory.CreateDirectory(imageStorageRoot);
@@ -98,7 +104,10 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseSerilogRequestLogging();
-app.UseHttpsRedirection();
+if (!app.Environment.IsDevelopment())
+{
+    app.UseHttpsRedirection();
+}
 app.UseCors("Frontend");
 app.UseRateLimiter();
 app.UseAuthentication();

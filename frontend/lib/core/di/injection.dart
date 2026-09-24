@@ -55,6 +55,14 @@ import '../../features/workshops/domain/usecases/get_workshop_detail.dart';
 import '../../features/workshops/domain/usecases/get_workshops.dart';
 import '../../features/workshops/presentation/cubit/workshop_detail_cubit.dart';
 import '../../features/workshops/presentation/cubit/workshops_cubit.dart';
+import '../../features/theft/data/datasources/theft_data_source.dart';
+import '../../features/theft/data/repositories/theft_repository_impl.dart';
+import '../../features/theft/domain/repositories/theft_repository.dart';
+import '../../features/theft/domain/usecases/theft_report_usecases.dart';
+import '../../features/theft/presentation/cubit/my_theft_reports_cubit.dart';
+import '../../features/theft/presentation/cubit/theft_report_detail_cubit.dart';
+import '../../features/theft/presentation/cubit/theft_report_form_cubit.dart';
+import '../../features/theft/presentation/cubit/theft_reports_cubit.dart';
 
 final GetIt getIt = GetIt.instance;
 
@@ -128,4 +136,16 @@ Future<void> configureDependencies() async {
   if (!getIt.isRegistered<GetWorkshopDetail>()) getIt.registerLazySingleton(() => GetWorkshopDetail(getIt<WorkshopRepository>()));
   if (!getIt.isRegistered<WorkshopsCubit>()) getIt.registerFactory(() => WorkshopsCubit(getIt<GetWorkshops>()));
   if (!getIt.isRegistered<WorkshopDetailCubit>()) getIt.registerFactory(() => WorkshopDetailCubit(getIt<GetWorkshopDetail>()));
+
+  if (!getIt.isRegistered<TheftDataSource>()) getIt.registerLazySingleton(() => TheftDataSource(getIt<ApiClient>().dio));
+  if (!getIt.isRegistered<TheftRepository>()) getIt.registerLazySingleton<TheftRepository>(() => TheftRepositoryImpl(getIt<TheftDataSource>()));
+  if (!getIt.isRegistered<GetActiveTheftReports>()) getIt.registerLazySingleton(() => GetActiveTheftReports(getIt<TheftRepository>()));
+  if (!getIt.isRegistered<GetTheftReportDetail>()) getIt.registerLazySingleton(() => GetTheftReportDetail(getIt<TheftRepository>()));
+  if (!getIt.isRegistered<GetMyTheftReports>()) getIt.registerLazySingleton(() => GetMyTheftReports(getIt<TheftRepository>()));
+  if (!getIt.isRegistered<CreateTheftReport>()) getIt.registerLazySingleton(() => CreateTheftReport(getIt<TheftRepository>()));
+  if (!getIt.isRegistered<UpdateTheftReportStatus>()) getIt.registerLazySingleton(() => UpdateTheftReportStatus(getIt<TheftRepository>()));
+  if (!getIt.isRegistered<TheftReportsCubit>()) getIt.registerFactory(() => TheftReportsCubit(getIt<GetActiveTheftReports>()));
+  if (!getIt.isRegistered<TheftReportDetailCubit>()) getIt.registerFactory(() => TheftReportDetailCubit(getIt<GetTheftReportDetail>()));
+  if (!getIt.isRegistered<MyTheftReportsCubit>()) getIt.registerFactory(() => MyTheftReportsCubit(getIt<GetMyTheftReports>(), getIt<UpdateTheftReportStatus>()));
+  if (!getIt.isRegistered<TheftReportFormCubit>()) getIt.registerFactory(() => TheftReportFormCubit(getIt<GetMotorcycles>(), getIt<CreateTheftReport>()));
 }
