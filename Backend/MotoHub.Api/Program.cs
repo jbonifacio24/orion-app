@@ -11,6 +11,9 @@ using MotoHub.Infrastructure;
 using MotoHub.Infrastructure.Storage;
 using Microsoft.Extensions.FileProviders;
 using Microsoft.Extensions.Options;
+using MotoHub.Api.Hubs;
+using MotoHub.Api.Realtime;
+using MotoHub.Application.Chat;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -18,6 +21,8 @@ builder.Host.UseSerilog((context, configuration) =>
     configuration.ReadFrom.Configuration(context.Configuration));
 builder.Services.AddControllers();
 builder.Services.AddInfrastructure(builder.Configuration);
+builder.Services.AddSignalR();
+builder.Services.AddScoped<IChatRealtimeNotifier, SignalRChatRealtimeNotifier>();
 var jwtOptions = builder.Configuration.GetSection("Jwt").Get<JwtOptions>()
     ?? throw new InvalidOperationException("Jwt configuration is missing.");
 if (string.IsNullOrWhiteSpace(jwtOptions.SigningKey))
@@ -37,6 +42,23 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             ValidAudience = jwtOptions.Audience,
             ValidateLifetime = true,
             ClockSkew = TimeSpan.FromSeconds(30)
+        };
+        options.Events = new JwtBearerEvents
+        {
+            OnMessageReceived = context =>
+            {
+                if (string.IsNullOrEmpty(context.Token) &&
+                    context.Request.Path.StartsWithSegments("/hubs/chat"))
+                {
+                    var accessToken = context.Request.Query["access_token"].FirstOrDefault();
+                    if (!string.IsNullOrWhiteSpace(accessToken))
+                    {
+                        context.Token = accessToken;
+                    }
+                }
+
+                return Task.CompletedTask;
+            }
         };
     });
 builder.Services.AddAuthorization();
@@ -113,6 +135,7 @@ app.UseRateLimiter();
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();
+app.MapHub<ChatHub>("/hubs/chat");
 app.MapGet("/health", () => Results.Ok(new { status = "ok" }));
 
 app.Run();

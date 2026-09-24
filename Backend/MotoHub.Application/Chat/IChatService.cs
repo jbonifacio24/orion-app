@@ -10,6 +10,17 @@ public interface IChatService
     Task<PagedResponse<MessageResponseDto>> GetMessagesAsync(Guid userId, Guid conversationId, MessageListQueryDto query, CancellationToken cancellationToken);
     Task<MessageResponseDto> SendMessageAsync(Guid userId, Guid conversationId, SendMessageRequest request, CancellationToken cancellationToken);
     Task MarkReadAsync(Guid userId, Guid conversationId, CancellationToken cancellationToken);
+    Task EnsureActiveParticipantAsync(Guid userId, Guid conversationId, CancellationToken cancellationToken);
+}
+
+public interface IChatRealtimeNotifier
+{
+    Task NotifyMessageReceivedAsync(MessageResponseDto message, CancellationToken cancellationToken);
+}
+
+public static class ChatGroupNames
+{
+    public static string Conversation(Guid conversationId) => $"conversation:{conversationId:D}";
 }
 
 public sealed record DirectConversationRequest(Guid RecipientUserId);

@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using MotoHub.Application.Chat;
 using MotoHub.Application.Errors;
 using MotoHub.Application.Marketplace;
@@ -7,7 +8,10 @@ using MotoHub.Infrastructure.Persistence;
 
 namespace MotoHub.Infrastructure.Chat;
 
-public sealed class ChatService(MotoHubDbContext dbContext) : IChatService
+public sealed class ChatService(
+    MotoHubDbContext dbContext,
+    IChatRealtimeNotifier? realtimeNotifier = null,
+    ILogger<ChatService>? logger = null) : IChatService
 {
     private const int MaxPageSize = 50;
 
@@ -155,7 +159,21 @@ public sealed class ChatService(MotoHubDbContext dbContext) : IChatService
             conversation.LastMessageAt = sentAt;
             dbContext.Messages.Add(message);
             await dbContext.SaveChangesAsync(cancellationToken);
-            return ToMessageDto(message);
+            var response = ToMessageDto(message);
+            if (realtimeNotifier is not null)
+            {
+                try
+                {
+                    await realtimeNotifier.NotifyMessageReceivedAsync(response, cancellationToken);
+                }
+                catch (Exception exception)
+                {
+                    logger?.LogError(exception,
+                        "Chat realtime notification failed for persisted message {MessageId}.", response.Id);
+                }
+            }
+
+            return response;
         }
 
         public async Task MarkReadAsync(Guid userId, Guid conversationId, CancellationToken cancellationToken)
@@ -169,6 +187,9 @@ public sealed class ChatService(MotoHubDbContext dbContext) : IChatService
             participant.LastReadAt = DateTimeOffset.UtcNow;
             await dbContext.SaveChangesAsync(cancellationToken);
         }
+
+        public async Task EnsureActiveParticipantAsync(Guid userId, Guid conversationId, CancellationToken cancellationToken)
+            => await GetActiveDirectConversationAsync(userId, conversationId, cancellationToken);
 
         private async Task<Conversation> GetActiveDirectConversationAsync(Guid userId, Guid conversationId, CancellationToken cancellationToken)
             => await dbContext.Conversations

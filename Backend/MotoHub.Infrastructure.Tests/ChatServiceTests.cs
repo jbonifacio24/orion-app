@@ -115,6 +115,43 @@ public sealed class ChatServiceTests
     }
 
     [Fact]
+    public async Task Send_message_notifies_after_persistence_with_the_saved_message()
+    {
+        await using var context = CreateContext();
+        var current = AddUser(context, "current", "Current", "User");
+        var other = AddUser(context, "other");
+        var conversation = AddConversation(context, current, other);
+        await context.SaveChangesAsync();
+        var notifier = new RecordingNotifier(async message =>
+        {
+            Assert.True(await context.Messages.AnyAsync(x => x.Id == message.Id));
+            Assert.Equal(conversation.Id, message.ConversationId);
+            Assert.Equal(current.Id, message.SenderUserId);
+            Assert.Equal("hello", message.Content);
+        });
+
+        var response = await Service(context, notifier).SendMessageAsync(current.Id, conversation.Id, new("hello"), default);
+
+        Assert.Equal(response.Id, notifier.MessageId);
+        Assert.Equal(1, notifier.CallCount);
+    }
+
+    [Fact]
+    public async Task Send_message_remains_persisted_when_realtime_notification_fails()
+    {
+        await using var context = CreateContext();
+        var current = AddUser(context, "current");
+        var other = AddUser(context, "other");
+        var conversation = AddConversation(context, current, other);
+        await context.SaveChangesAsync();
+
+        var response = await Service(context, new RecordingNotifier(_ => throw new InvalidOperationException("realtime unavailable")))
+            .SendMessageAsync(current.Id, conversation.Id, new("hello"), default);
+
+        Assert.Equal(response.Id, Assert.Single(await context.Messages.ToListAsync()).Id);
+    }
+
+    [Fact]
     public async Task Send_message_rejects_non_participant_and_invalid_content()
     {
         await using var context = CreateContext();
@@ -189,7 +226,21 @@ public sealed class ChatServiceTests
         Assert.Equal(1, Assert.Single(response).UnreadCount);
     }
 
-    private static ChatService Service(MotoHubDbContext context) => new(context);
+    private static ChatService Service(MotoHubDbContext context, IChatRealtimeNotifier? notifier = null)
+        => new(context, notifier);
+
+    private sealed class RecordingNotifier(Func<MessageResponseDto, Task> callback) : IChatRealtimeNotifier
+    {
+        public int CallCount { get; private set; }
+        public Guid MessageId { get; private set; }
+
+        public async Task NotifyMessageReceivedAsync(MessageResponseDto message, CancellationToken cancellationToken)
+        {
+            CallCount++;
+            MessageId = message.Id;
+            await callback(message);
+        }
+    }
 
     private static User AddUser(MotoHubDbContext context, string userName, string? firstName = null, string? lastName = null, string? email = null, string? image = null)
     {
