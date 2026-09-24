@@ -1,3 +1,5 @@
+import 'package:flutter/material.dart';
+
 abstract final class AppLocalizations {
   static const localeName = 'es';
 
@@ -86,4 +88,20 @@ abstract final class AppLocalizations {
   static const mapView = 'Mapa';
   static const workshopsViewMode = 'Modo de vista de talleres';
   static const noWorkshopsWithLocation = 'No hay talleres con ubicación disponible.';
+
+  static String communityTitle(Locale locale) => locale.languageCode == 'en' ? 'Community' : 'Comunidad';
+  static String communityCreate(Locale locale) => locale.languageCode == 'en' ? 'New post' : 'Nueva publicación';
+  static String communityContentHint(Locale locale) => locale.languageCode == 'en' ? 'What do you want to share?' : '¿Qué quieres compartir?';
+  static String communityPublish(Locale locale) => locale.languageCode == 'en' ? 'Publish' : 'Publicar';
+  static String communityDelete(Locale locale) => locale.languageCode == 'en' ? 'Delete post' : 'Eliminar publicación';
+  static String communityDeleteConfirmation(Locale locale) => locale.languageCode == 'en' ? 'This action will delete the post.' : 'Esta acción eliminará la publicación.';
+  static String communityCancel(Locale locale) => locale.languageCode == 'en' ? 'Cancel' : 'Cancelar';
+  static String communityDeleteAction(Locale locale) => locale.languageCode == 'en' ? 'Delete' : 'Eliminar';
+  static String communityEmpty(Locale locale) => locale.languageCode == 'en' ? 'No posts yet.' : 'Sin publicaciones.';
+  static String communityLoadFailed(Locale locale) => locale.languageCode == 'en' ? 'Community could not be loaded.' : 'No se pudo cargar la comunidad.';
+  static String communityPublishFailed(Locale locale) => locale.languageCode == 'en' ? 'The post could not be published.' : 'No se pudo publicar.';
+  static String communityDeleteFailed(Locale locale) => locale.languageCode == 'en' ? 'The post could not be deleted.' : 'No se pudo eliminar.';
+  static String communityCharacterCount(Locale locale, int current, int max) => locale.languageCode == 'en' ? '$current / $max' : '$current / $max';
+  static String communityComments(Locale locale) => locale.languageCode == 'en' ? 'comments' : 'comentarios';
+  static String communityLikes(Locale locale) => locale.languageCode == 'en' ? 'likes' : 'me gusta';
 }

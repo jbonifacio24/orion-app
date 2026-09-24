@@ -25,4 +25,8 @@ abstract final class RouteNames {
   static const theftReportDetail = 'theft-report-detail';
   static const myTheftReports = 'my-theft-reports';
   static const theftReportCreate = 'theft-report-create';
+  static const community = 'community';
+  static const communityCreate = 'community-create';
+  static const communityPath = '/community';
+  static const communityCreatePath = '/community/create';
 }

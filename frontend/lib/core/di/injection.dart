@@ -79,6 +79,13 @@ import '../../features/chat/domain/repositories/chat_realtime_repository.dart';
 import '../../features/chat/domain/usecases/chat_usecases.dart';
 import '../../features/chat/presentation/cubit/chat_cubit.dart';
 import '../../features/chat/presentation/cubit/conversations_cubit.dart';
+import '../../features/community/data/datasources/community_rest_data_source.dart';
+import '../../features/community/data/repositories/community_repository_impl.dart';
+import '../../features/community/domain/repositories/community_repository.dart';
+import '../../features/community/domain/usecases/create_community_post.dart';
+import '../../features/community/domain/usecases/delete_community_post.dart';
+import '../../features/community/domain/usecases/get_community_feed.dart';
+import '../../features/community/presentation/cubit/community_feed_cubit.dart';
 
 final GetIt getIt = GetIt.instance;
 
@@ -184,4 +191,10 @@ Future<void> configureDependencies() async {
   if (!getIt.isRegistered<ChatRealtimeRepository>()) getIt.registerLazySingleton<ChatRealtimeRepository>(() => getIt<SignalRChatRealtimeDataSource>());
   if (!getIt.isRegistered<ConversationsCubit>()) getIt.registerLazySingleton(() => ConversationsCubit(getIt<GetConversations>(), getIt<GetOrCreateDirectConversation>()));
   if (!getIt.isRegistered<ChatCubit>()) getIt.registerFactory(() => ChatCubit(getIt<GetMessages>(), getIt<SendMessage>(), getIt<MarkConversationRead>(), getIt<ChatRealtimeRepository>()));
+  if (!getIt.isRegistered<CommunityRestDataSource>()) getIt.registerLazySingleton(() => CommunityRestDataSource(getIt<ApiClient>().dio));
+  if (!getIt.isRegistered<CommunityRepository>()) getIt.registerLazySingleton<CommunityRepository>(() => CommunityRepositoryImpl(getIt<CommunityRestDataSource>()));
+  if (!getIt.isRegistered<GetCommunityFeed>()) getIt.registerLazySingleton(() => GetCommunityFeed(getIt<CommunityRepository>()));
+  if (!getIt.isRegistered<CreateCommunityPost>()) getIt.registerLazySingleton(() => CreateCommunityPost(getIt<CommunityRepository>()));
+  if (!getIt.isRegistered<DeleteCommunityPost>()) getIt.registerLazySingleton(() => DeleteCommunityPost(getIt<CommunityRepository>()));
+  if (!getIt.isRegistered<CommunityFeedCubit>()) getIt.registerFactory(() => CommunityFeedCubit(getIt<GetCommunityFeed>(), getIt<CreateCommunityPost>(), getIt<DeleteCommunityPost>(), getIt<SessionEvents>()));
 }
