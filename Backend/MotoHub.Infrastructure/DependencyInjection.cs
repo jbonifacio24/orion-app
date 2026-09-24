@@ -18,6 +18,8 @@ using MotoHub.Application.TheftReports;
 using MotoHub.Infrastructure.TheftReports;
 using MotoHub.Application.Notifications;
 using MotoHub.Infrastructure.Notifications;
+using MotoHub.Application.Chat;
+using MotoHub.Infrastructure.Chat;
 
 namespace MotoHub.Infrastructure;
 
@@ -65,6 +67,7 @@ public static class DependencyInjection
         services.AddScoped<IWorkshopService, WorkshopService>();
         services.AddScoped<ITheftReportService, TheftReportService>();
         services.AddScoped<INotificationService, NotificationService>();
+        services.AddScoped<IChatService, ChatService>();
         services.AddSingleton<ImageFileValidator>();
         services.AddSingleton<IProductImageStorage, LocalProductImageStorage>();
         services.AddScoped<ProductCategorySeeder>();
