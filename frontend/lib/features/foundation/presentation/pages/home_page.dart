@@ -4,15 +4,43 @@ import 'package:go_router/go_router.dart';
 
 import '../../../auth/presentation/cubit/auth_cubit.dart';
 import '../../../../core/localization/app_localizations.dart';
+import '../../../../core/router/route_names.dart';
+import '../../../notifications/presentation/cubit/notifications_cubit.dart';
+import '../../../notifications/presentation/widgets/notification_badge.dart';
 
-class HomePage extends StatelessWidget {
+class HomePage extends StatefulWidget {
   const HomePage({super.key});
+
+  @override
+  State<HomePage> createState() => _HomePageState();
+}
+
+class _HomePageState extends State<HomePage> {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) context.read<NotificationsCubit>().loadUnreadCount();
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         title: const Text('MotoHub'),
+        actions: [
+          BlocBuilder<NotificationsCubit, NotificationsState>(
+            builder: (context, state) => IconButton(
+              tooltip: AppLocalizations.notifications,
+              onPressed: () => context.pushNamed(RouteNames.notifications),
+              icon: Stack(clipBehavior: Clip.none, children: [
+                const Icon(Icons.notifications_outlined),
+                NotificationBadge(count: state.unreadCount),
+              ]),
+            ),
+          ),
+        ],
       ),
       drawer: Drawer(
         child: SafeArea(
@@ -26,13 +54,14 @@ class HomePage extends StatelessWidget {
                   child: Text('MotoHub', style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold)),
                 ),
               ),
-              _MenuItem(icon: Icons.person, label: 'Mi perfil', routeName: 'profile'),
-              _MenuItem(icon: Icons.two_wheeler, label: 'Mis motocicletas', routeName: 'motorcycles'),
-              _MenuItem(icon: Icons.storefront, label: 'Marketplace', routeName: 'marketplace'),
-              _MenuItem(icon: Icons.build_circle_outlined, label: AppLocalizations.workshops, routeName: 'workshops'),
-              _MenuItem(icon: Icons.warning_amber_rounded, label: 'Reportes de robo', routeName: 'theft-reports'),
-              _MenuItem(icon: Icons.inventory_2_outlined, label: 'Mis productos', routeName: 'my-products'),
-              _MenuItem(icon: Icons.favorite_border, label: 'Favoritos', routeName: 'favorites'),
+              const _MenuItem(icon: Icons.person, label: 'Mi perfil', routeName: 'profile'),
+              const _MenuItem(icon: Icons.two_wheeler, label: 'Mis motocicletas', routeName: 'motorcycles'),
+              const _MenuItem(icon: Icons.storefront, label: 'Marketplace', routeName: 'marketplace'),
+              const _MenuItem(icon: Icons.build_circle_outlined, label: AppLocalizations.workshops, routeName: 'workshops'),
+              const _MenuItem(icon: Icons.warning_amber_rounded, label: 'Reportes de robo', routeName: 'theft-reports'),
+              const _MenuItem(icon: Icons.inventory_2_outlined, label: 'Mis productos', routeName: 'my-products'),
+              const _MenuItem(icon: Icons.favorite_border, label: 'Favoritos', routeName: 'favorites'),
+              const _MenuItem(icon: Icons.notifications_outlined, label: AppLocalizations.notifications, routeName: RouteNames.notifications),
               const Divider(),
               ListTile(
                 leading: const Icon(Icons.logout),

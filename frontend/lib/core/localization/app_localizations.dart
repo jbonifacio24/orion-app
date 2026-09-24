@@ -30,6 +30,15 @@ abstract final class AppLocalizations {
   static const uploading = 'Subiendo...';
   static const removeImage = 'Quitar';
   static const workshops = 'Talleres';
+  static const notifications = 'Notificaciones';
+  static const noNotifications = 'No tienes notificaciones.';
+  static const markAllAsRead = 'Marcar todas como leídas';
+  static const unread = 'No leídas';
+  static const notificationLoadFailed = 'No se pudieron cargar las notificaciones.';
+  static const notificationMarkReadFailed = 'No se pudo marcar la notificación como leída.';
+  static const notificationMarkAllReadFailed = 'No se pudieron marcar todas las notificaciones como leídas.';
+  static const unknownNotification = 'Notificación';
+  static const dismiss = 'Cerrar';
   static const searchWorkshops = 'Buscar talleres';
   static const city = 'Ciudad';
   static const clearCity = 'Limpiar ciudad';

@@ -63,6 +63,14 @@ import '../../features/theft/presentation/cubit/my_theft_reports_cubit.dart';
 import '../../features/theft/presentation/cubit/theft_report_detail_cubit.dart';
 import '../../features/theft/presentation/cubit/theft_report_form_cubit.dart';
 import '../../features/theft/presentation/cubit/theft_reports_cubit.dart';
+import '../../features/notifications/data/datasources/notifications_data_source.dart';
+import '../../features/notifications/data/repositories/notifications_repository_impl.dart';
+import '../../features/notifications/domain/repositories/notifications_repository.dart';
+import '../../features/notifications/domain/usecases/get_notifications.dart';
+import '../../features/notifications/domain/usecases/get_unread_notification_count.dart';
+import '../../features/notifications/domain/usecases/mark_all_notifications_as_read.dart';
+import '../../features/notifications/domain/usecases/mark_notification_as_read.dart';
+import '../../features/notifications/presentation/cubit/notifications_cubit.dart';
 
 final GetIt getIt = GetIt.instance;
 
@@ -148,4 +156,12 @@ Future<void> configureDependencies() async {
   if (!getIt.isRegistered<TheftReportDetailCubit>()) getIt.registerFactory(() => TheftReportDetailCubit(getIt<GetTheftReportDetail>()));
   if (!getIt.isRegistered<MyTheftReportsCubit>()) getIt.registerFactory(() => MyTheftReportsCubit(getIt<GetMyTheftReports>(), getIt<UpdateTheftReportStatus>()));
   if (!getIt.isRegistered<TheftReportFormCubit>()) getIt.registerFactory(() => TheftReportFormCubit(getIt<GetMotorcycles>(), getIt<CreateTheftReport>()));
+
+  if (!getIt.isRegistered<NotificationsDataSource>()) getIt.registerLazySingleton(() => NotificationsDataSource(getIt<ApiClient>().dio));
+  if (!getIt.isRegistered<NotificationsRepository>()) getIt.registerLazySingleton<NotificationsRepository>(() => NotificationsRepositoryImpl(getIt<NotificationsDataSource>()));
+  if (!getIt.isRegistered<GetNotifications>()) getIt.registerLazySingleton(() => GetNotifications(getIt<NotificationsRepository>()));
+  if (!getIt.isRegistered<GetUnreadNotificationCount>()) getIt.registerLazySingleton(() => GetUnreadNotificationCount(getIt<NotificationsRepository>()));
+  if (!getIt.isRegistered<MarkNotificationAsRead>()) getIt.registerLazySingleton(() => MarkNotificationAsRead(getIt<NotificationsRepository>()));
+  if (!getIt.isRegistered<MarkAllNotificationsAsRead>()) getIt.registerLazySingleton(() => MarkAllNotificationsAsRead(getIt<NotificationsRepository>()));
+  if (!getIt.isRegistered<NotificationsCubit>()) getIt.registerLazySingleton(() => NotificationsCubit(getIt<GetNotifications>(), getIt<GetUnreadNotificationCount>(), getIt<MarkNotificationAsRead>(), getIt<MarkAllNotificationsAsRead>()));
 }

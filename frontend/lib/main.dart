@@ -6,6 +6,7 @@ import 'core/di/injection.dart';
 import 'core/router/app_router.dart';
 import 'core/theme/app_theme.dart';
 import 'features/auth/presentation/cubit/auth_cubit.dart';
+import 'features/notifications/presentation/cubit/notifications_cubit.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -49,9 +50,17 @@ class _MotoHubAppState extends State<MotoHubApp> {
       darkTheme: AppTheme.dark,
       themeMode: ThemeMode.system,
       routerConfig: _router,
-      builder: (context, child) => BlocProvider<AuthCubit>.value(
-        value: widget.authCubit,
-        child: child ?? const SizedBox.shrink(),
+      builder: (context, child) => MultiBlocProvider(
+        providers: [
+          BlocProvider<AuthCubit>.value(value: widget.authCubit),
+          BlocProvider<NotificationsCubit>.value(value: getIt<NotificationsCubit>()),
+        ],
+        child: BlocListener<AuthCubit, AuthState>(
+          listener: (context, state) {
+            if (state is AuthUnauthenticated) context.read<NotificationsCubit>().clear();
+          },
+          child: child ?? const SizedBox.shrink(),
+        ),
       ),
     );
   }

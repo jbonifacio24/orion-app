@@ -3,6 +3,7 @@ abstract final class RouteNames {
   static const login = 'login';
   static const register = 'register';
   static const home = 'home';
+  static const notifications = 'notifications';
   static const profile = 'profile';
   static const profileEdit = 'profile-edit';
   static const motorcycles = 'motorcycles';

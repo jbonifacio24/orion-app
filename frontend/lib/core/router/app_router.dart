@@ -6,6 +6,7 @@ import '../../features/auth/presentation/pages/login_page.dart';
 import '../../features/auth/presentation/pages/register_page.dart';
 import '../../features/auth/presentation/pages/splash_page.dart';
 import '../../features/foundation/presentation/pages/home_page.dart';
+import '../../features/notifications/presentation/pages/notifications_page.dart';
 import '../../features/profile/presentation/cubit/profile_cubit.dart';
 import '../../features/profile/presentation/pages/edit_profile_page.dart';
 import '../../features/profile/presentation/pages/profile_page.dart';
@@ -84,6 +85,11 @@ GoRouter createAppRouter(AuthCubit authCubit) {
       name: RouteNames.home,
       path: '/home',
       builder: (context, state) => const HomePage(),
+    ),
+    GoRoute(
+      name: RouteNames.notifications,
+      path: '/notifications',
+      builder: (context, state) => const NotificationsPage(),
     ),
     GoRoute(
       name: RouteNames.profile,
