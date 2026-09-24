@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
@@ -8,6 +10,7 @@ import 'core/theme/app_theme.dart';
 import 'features/auth/presentation/cubit/auth_cubit.dart';
 import 'features/notifications/presentation/cubit/notifications_cubit.dart';
 import 'features/chat/presentation/cubit/conversations_cubit.dart';
+import 'features/chat/domain/repositories/chat_realtime_repository.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -62,6 +65,7 @@ class _MotoHubAppState extends State<MotoHubApp> {
             if (state is AuthUnauthenticated) {
               context.read<NotificationsCubit>().clear();
               context.read<ConversationsCubit>().clear();
+              unawaited(getIt<ChatRealtimeRepository>().stop());
             }
           },
           child: child ?? const SizedBox.shrink(),

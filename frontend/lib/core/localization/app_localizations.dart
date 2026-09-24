@@ -34,6 +34,9 @@ abstract final class AppLocalizations {
   static const conversations = 'Conversaciones';
   static const chat = 'Chat';
   static const defaultUser = 'Usuario';
+  static const chatConnecting = 'Conectando...';
+  static const chatReconnecting = 'Reconectando...';
+  static const chatOffline = 'Sin conexión';
   static const noConversations = 'No tienes conversaciones.';
   static const noMessages = 'No hay mensajes todavía.';
   static const writeMessage = 'Escribe un mensaje';

@@ -72,8 +72,10 @@ import '../../features/notifications/domain/usecases/mark_all_notifications_as_r
 import '../../features/notifications/domain/usecases/mark_notification_as_read.dart';
 import '../../features/notifications/presentation/cubit/notifications_cubit.dart';
 import '../../features/chat/data/datasources/chat_rest_data_source.dart';
+import '../../features/chat/data/datasources/chat_realtime_data_source.dart';
 import '../../features/chat/data/repositories/chat_repository_impl.dart';
 import '../../features/chat/domain/repositories/chat_repository.dart';
+import '../../features/chat/domain/repositories/chat_realtime_repository.dart';
 import '../../features/chat/domain/usecases/chat_usecases.dart';
 import '../../features/chat/presentation/cubit/chat_cubit.dart';
 import '../../features/chat/presentation/cubit/conversations_cubit.dart';
@@ -178,6 +180,8 @@ Future<void> configureDependencies() async {
   if (!getIt.isRegistered<GetMessages>()) getIt.registerLazySingleton(() => GetMessages(getIt<ChatRepository>()));
   if (!getIt.isRegistered<SendMessage>()) getIt.registerLazySingleton(() => SendMessage(getIt<ChatRepository>()));
   if (!getIt.isRegistered<MarkConversationRead>()) getIt.registerLazySingleton(() => MarkConversationRead(getIt<ChatRepository>()));
+  if (!getIt.isRegistered<SignalRChatRealtimeDataSource>()) getIt.registerLazySingleton(() => SignalRChatRealtimeDataSource(getIt<TokenStorage>()));
+  if (!getIt.isRegistered<ChatRealtimeRepository>()) getIt.registerLazySingleton<ChatRealtimeRepository>(() => getIt<SignalRChatRealtimeDataSource>());
   if (!getIt.isRegistered<ConversationsCubit>()) getIt.registerLazySingleton(() => ConversationsCubit(getIt<GetConversations>(), getIt<GetOrCreateDirectConversation>()));
-  if (!getIt.isRegistered<ChatCubit>()) getIt.registerFactory(() => ChatCubit(getIt<GetMessages>(), getIt<SendMessage>(), getIt<MarkConversationRead>()));
+  if (!getIt.isRegistered<ChatCubit>()) getIt.registerFactory(() => ChatCubit(getIt<GetMessages>(), getIt<SendMessage>(), getIt<MarkConversationRead>(), getIt<ChatRealtimeRepository>()));
 }

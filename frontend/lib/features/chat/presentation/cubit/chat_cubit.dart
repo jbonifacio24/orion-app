@@ -1,7 +1,10 @@
+import 'dart:async';
+
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/error/error_mapper.dart';
 import '../../domain/entities/chat_entities.dart';
+import '../../domain/repositories/chat_realtime_repository.dart';
 import '../../domain/usecases/chat_usecases.dart';
 
 class ChatState {
@@ -17,6 +20,7 @@ class ChatState {
     this.isLoadingMore = false,
     this.isSending = false,
     this.isMarkingRead = false,
+    this.realtimeState = ChatRealtimeConnectionState.disconnected,
     this.failure,
     this.loadingMoreFailure,
     this.actionFailure,
@@ -33,6 +37,7 @@ class ChatState {
   final bool isLoadingMore;
   final bool isSending;
   final bool isMarkingRead;
+  final ChatRealtimeConnectionState realtimeState;
   final String? failure;
   final String? loadingMoreFailure;
   final String? actionFailure;
@@ -52,6 +57,7 @@ class ChatState {
     bool? isLoadingMore,
     bool? isSending,
     bool? isMarkingRead,
+    ChatRealtimeConnectionState? realtimeState,
     String? failure,
     bool clearFailure = false,
     String? loadingMoreFailure,
@@ -70,6 +76,7 @@ class ChatState {
         isLoadingMore: isLoadingMore ?? this.isLoadingMore,
         isSending: isSending ?? this.isSending,
         isMarkingRead: isMarkingRead ?? this.isMarkingRead,
+        realtimeState: realtimeState ?? this.realtimeState,
         failure: clearFailure ? null : failure ?? this.failure,
         loadingMoreFailure: clearLoadingMoreFailure ? null : loadingMoreFailure ?? this.loadingMoreFailure,
         actionFailure: clearActionFailure ? null : actionFailure ?? this.actionFailure,
@@ -77,18 +84,94 @@ class ChatState {
 }
 
 class ChatCubit extends Cubit<ChatState> {
-  ChatCubit(this._getMessages, this._sendMessage, this._markRead)
-      : super(const ChatState());
+  ChatCubit(this._getMessages, this._sendMessage, this._markRead, [this._realtime])
+      : super(const ChatState()) {
+    _messageSubscription = _realtime?.messages.listen(_onRealtimeMessage);
+    _connectionSubscription = _realtime?.connectionStates.listen(_onConnectionState);
+  }
 
   final GetMessages _getMessages;
   final SendMessage _sendMessage;
   final MarkConversationRead _markRead;
+  final ChatRealtimeRepository? _realtime;
+  StreamSubscription<ChatMessage>? _messageSubscription;
+  StreamSubscription<ChatRealtimeConnectionState>? _connectionSubscription;
+  Future<void>? _joiningFuture;
+  String? _joiningConversation;
+  String? _joinedConversation;
+  bool _hasConnected = false;
   int _generation = 0;
 
   Future<void> load(String conversationId) async {
     final requestId = ++_generation;
     emit(ChatState(conversationId: conversationId, isInitialLoading: true, pageSize: state.pageSize));
     await _loadPage(conversationId, 1, requestId, reset: true);
+    if (!isClosed && requestId == _generation && state.conversationId == conversationId) {
+      await _activateRealtime(conversationId);
+    }
+  }
+
+  Future<void> _activateRealtime(String conversationId) async {
+    final realtime = _realtime;
+    if (realtime == null) return;
+    try {
+      await realtime.start();
+      if (!isClosed && state.conversationId == conversationId) await _join(conversationId);
+    } catch (_) {
+      // REST chat remains usable while realtime is unavailable.
+    }
+  }
+
+  Future<void> _join(String conversationId) async {
+    final realtime = _realtime;
+    if (realtime == null || _joinedConversation == conversationId) return;
+    if (_joiningConversation == conversationId && _joiningFuture != null) {
+      await _joiningFuture;
+      return;
+    }
+    _joiningConversation = conversationId;
+    final future = realtime.joinConversation(conversationId);
+    _joiningFuture = future;
+    try {
+      await future;
+      if (!isClosed && state.conversationId == conversationId) _joinedConversation = conversationId;
+    } finally {
+      if (identical(_joiningFuture, future)) {
+        _joiningFuture = null;
+        _joiningConversation = null;
+      }
+    }
+  }
+
+  void _onRealtimeMessage(ChatMessage message) {
+    if (isClosed || state.conversationId != message.conversationId) return;
+    emit(state.copyWith(items: _merge(state.items, [message])));
+  }
+
+  void _onConnectionState(ChatRealtimeConnectionState connectionState) {
+    if (isClosed) return;
+    emit(state.copyWith(realtimeState: connectionState));
+    if (connectionState == ChatRealtimeConnectionState.reconnecting ||
+        connectionState == ChatRealtimeConnectionState.disconnected ||
+        connectionState == ChatRealtimeConnectionState.failed) {
+      _joinedConversation = null;
+      return;
+    }
+    if (connectionState != ChatRealtimeConnectionState.connected) return;
+    final conversationId = state.conversationId;
+    if (conversationId == null) return;
+    final shouldResync = _hasConnected;
+    _hasConnected = true;
+    unawaited(_rejoinAndResync(conversationId, shouldResync));
+  }
+
+  Future<void> _rejoinAndResync(String conversationId, bool shouldResync) async {
+    try {
+      await _join(conversationId);
+      if (shouldResync && !isClosed && state.conversationId == conversationId) await refresh();
+    } catch (_) {
+      // A failed rejoin will be retried by the next connection transition.
+    }
   }
 
   Future<void> refresh() async {
@@ -112,7 +195,7 @@ class ChatCubit extends Cubit<ChatState> {
       final result = await _getMessages(conversationId: conversationId, page: page, pageSize: state.pageSize);
       if (isClosed || requestId != _generation || state.conversationId != conversationId) return;
       emit(state.copyWith(
-        items: _merge(reset ? const [] : state.items, result.items),
+        items: _merge(state.items, result.items),
         conversationId: conversationId,
         page: result.page,
         pageSize: result.pageSize,
@@ -174,6 +257,19 @@ class ChatCubit extends Cubit<ChatState> {
   void clear() {
     _generation++;
     emit(const ChatState());
+  }
+
+  @override
+  Future<void> close() async {
+    await _messageSubscription?.cancel();
+    await _connectionSubscription?.cancel();
+    final conversationId = state.conversationId;
+    if (_realtime != null && conversationId != null) {
+      try {
+        await _realtime.leaveConversation(conversationId);
+      } catch (_) {}
+    }
+    return super.close();
   }
 
   void clearActionFailure() => emit(state.copyWith(clearActionFailure: true));

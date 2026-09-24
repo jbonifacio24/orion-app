@@ -4,6 +4,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../core/localization/app_localizations.dart';
 import '../../../auth/presentation/cubit/auth_cubit.dart';
 import '../../domain/entities/chat_entities.dart';
+import '../../domain/repositories/chat_realtime_repository.dart';
 import '../cubit/chat_cubit.dart';
 import '../cubit/conversations_cubit.dart';
 import '../widgets/message_bubble.dart';
@@ -73,6 +74,7 @@ class _ChatPageState extends State<ChatPage> {
       body: Column(
         children: [
           if (state.actionFailure != null) _ActionFailure(message: state.actionFailure!),
+          _RealtimeIndicator(state.realtimeState),
           Expanded(child: _content(context, state, currentUserId)),
           _composerBar(context, state),
         ],
@@ -135,6 +137,30 @@ class _ChatPageState extends State<ChatPage> {
           ),
         ),
       );
+}
+
+class _RealtimeIndicator extends StatelessWidget {
+  const _RealtimeIndicator(this.state);
+
+  final ChatRealtimeConnectionState state;
+
+  @override
+  Widget build(BuildContext context) {
+    final label = switch (state) {
+      ChatRealtimeConnectionState.connecting => AppLocalizations.chatConnecting,
+      ChatRealtimeConnectionState.reconnecting => AppLocalizations.chatReconnecting,
+      ChatRealtimeConnectionState.disconnected || ChatRealtimeConnectionState.failed => AppLocalizations.chatOffline,
+      ChatRealtimeConnectionState.connected => null,
+    };
+    if (label == null) return const SizedBox.shrink();
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+        child: Text(label, style: Theme.of(context).textTheme.labelSmall),
+      ),
+    );
+  }
 }
 
 class _ActionFailure extends StatelessWidget {

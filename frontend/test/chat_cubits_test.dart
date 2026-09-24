@@ -126,7 +126,12 @@ class _FakeChatRepository implements ChatRepository {
   Future<Conversation> getOrCreateDirectConversation(String recipientUserId) => Future.value(_conversation('conversation-id'));
 
   @override
-  Future<PagedMessages> getMessages({required String conversationId, required int page, int pageSize = 20}) => messagesByConversation?[conversationId] ?? messagesFuture ?? Future.value(messages!);
+  Future<PagedMessages> getMessages({required String conversationId, required int page, int pageSize = 20}) {
+    final conversationMessages = messagesByConversation?[conversationId];
+    if (conversationMessages != null) return Future.value(conversationMessages);
+    if (messagesFuture != null) return messagesFuture!;
+    return Future.value(messages!);
+  }
 
   @override
   Future<ChatMessage> sendMessage({required String conversationId, required String content}) {
