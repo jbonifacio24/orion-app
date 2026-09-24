@@ -4,6 +4,8 @@ abstract final class RouteNames {
   static const register = 'register';
   static const home = 'home';
   static const notifications = 'notifications';
+  static const conversations = 'conversations';
+  static const chat = 'chat';
   static const profile = 'profile';
   static const profileEdit = 'profile-edit';
   static const motorcycles = 'motorcycles';

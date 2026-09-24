@@ -71,6 +71,12 @@ import '../../features/notifications/domain/usecases/get_unread_notification_cou
 import '../../features/notifications/domain/usecases/mark_all_notifications_as_read.dart';
 import '../../features/notifications/domain/usecases/mark_notification_as_read.dart';
 import '../../features/notifications/presentation/cubit/notifications_cubit.dart';
+import '../../features/chat/data/datasources/chat_rest_data_source.dart';
+import '../../features/chat/data/repositories/chat_repository_impl.dart';
+import '../../features/chat/domain/repositories/chat_repository.dart';
+import '../../features/chat/domain/usecases/chat_usecases.dart';
+import '../../features/chat/presentation/cubit/chat_cubit.dart';
+import '../../features/chat/presentation/cubit/conversations_cubit.dart';
 
 final GetIt getIt = GetIt.instance;
 
@@ -164,4 +170,14 @@ Future<void> configureDependencies() async {
   if (!getIt.isRegistered<MarkNotificationAsRead>()) getIt.registerLazySingleton(() => MarkNotificationAsRead(getIt<NotificationsRepository>()));
   if (!getIt.isRegistered<MarkAllNotificationsAsRead>()) getIt.registerLazySingleton(() => MarkAllNotificationsAsRead(getIt<NotificationsRepository>()));
   if (!getIt.isRegistered<NotificationsCubit>()) getIt.registerLazySingleton(() => NotificationsCubit(getIt<GetNotifications>(), getIt<GetUnreadNotificationCount>(), getIt<MarkNotificationAsRead>(), getIt<MarkAllNotificationsAsRead>()));
+
+  if (!getIt.isRegistered<ChatRestDataSource>()) getIt.registerLazySingleton(() => ChatRestDataSource(getIt<ApiClient>().dio));
+  if (!getIt.isRegistered<ChatRepository>()) getIt.registerLazySingleton<ChatRepository>(() => ChatRepositoryImpl(getIt<ChatRestDataSource>()));
+  if (!getIt.isRegistered<GetConversations>()) getIt.registerLazySingleton(() => GetConversations(getIt<ChatRepository>()));
+  if (!getIt.isRegistered<GetOrCreateDirectConversation>()) getIt.registerLazySingleton(() => GetOrCreateDirectConversation(getIt<ChatRepository>()));
+  if (!getIt.isRegistered<GetMessages>()) getIt.registerLazySingleton(() => GetMessages(getIt<ChatRepository>()));
+  if (!getIt.isRegistered<SendMessage>()) getIt.registerLazySingleton(() => SendMessage(getIt<ChatRepository>()));
+  if (!getIt.isRegistered<MarkConversationRead>()) getIt.registerLazySingleton(() => MarkConversationRead(getIt<ChatRepository>()));
+  if (!getIt.isRegistered<ConversationsCubit>()) getIt.registerLazySingleton(() => ConversationsCubit(getIt<GetConversations>(), getIt<GetOrCreateDirectConversation>()));
+  if (!getIt.isRegistered<ChatCubit>()) getIt.registerFactory(() => ChatCubit(getIt<GetMessages>(), getIt<SendMessage>(), getIt<MarkConversationRead>()));
 }

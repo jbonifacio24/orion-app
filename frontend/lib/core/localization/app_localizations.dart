@@ -31,6 +31,16 @@ abstract final class AppLocalizations {
   static const removeImage = 'Quitar';
   static const workshops = 'Talleres';
   static const notifications = 'Notificaciones';
+  static const conversations = 'Conversaciones';
+  static const chat = 'Chat';
+  static const defaultUser = 'Usuario';
+  static const noConversations = 'No tienes conversaciones.';
+  static const noMessages = 'No hay mensajes todavía.';
+  static const writeMessage = 'Escribe un mensaje';
+  static const send = 'Enviar';
+  static const newConversation = 'Nueva conversación';
+  static const recipientUserId = 'Id del destinatario';
+  static const open = 'Abrir';
   static const noNotifications = 'No tienes notificaciones.';
   static const markAllAsRead = 'Marcar todas como leídas';
   static const unread = 'No leídas';

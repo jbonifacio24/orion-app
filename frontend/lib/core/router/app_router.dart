@@ -7,6 +7,10 @@ import '../../features/auth/presentation/pages/register_page.dart';
 import '../../features/auth/presentation/pages/splash_page.dart';
 import '../../features/foundation/presentation/pages/home_page.dart';
 import '../../features/notifications/presentation/pages/notifications_page.dart';
+import '../../features/chat/presentation/cubit/chat_cubit.dart';
+import '../../features/chat/presentation/cubit/conversations_cubit.dart';
+import '../../features/chat/presentation/pages/chat_page.dart';
+import '../../features/chat/presentation/pages/conversations_page.dart';
 import '../../features/profile/presentation/cubit/profile_cubit.dart';
 import '../../features/profile/presentation/pages/edit_profile_page.dart';
 import '../../features/profile/presentation/pages/profile_page.dart';
@@ -90,6 +94,22 @@ GoRouter createAppRouter(AuthCubit authCubit) {
       name: RouteNames.notifications,
       path: '/notifications',
       builder: (context, state) => const NotificationsPage(),
+    ),
+    GoRoute(
+      name: RouteNames.conversations,
+      path: '/conversations',
+      builder: (context, state) => BlocProvider.value(value: getIt<ConversationsCubit>(), child: const ConversationsPage()),
+    ),
+    GoRoute(
+      name: RouteNames.chat,
+      path: '/conversations/:conversationId',
+      builder: (context, state) {
+        final conversationId = state.pathParameters['conversationId']!;
+        return BlocProvider(
+          create: (_) => getIt<ChatCubit>(),
+          child: ChatPage(conversationId: conversationId),
+        );
+      },
     ),
     GoRoute(
       name: RouteNames.profile,

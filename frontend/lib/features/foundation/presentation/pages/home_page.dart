@@ -54,6 +54,11 @@ class _HomePageState extends State<HomePage> {
                   child: Text('MotoHub', style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold)),
                 ),
               ),
+          IconButton(
+            tooltip: AppLocalizations.conversations,
+            onPressed: () => context.pushNamed(RouteNames.conversations),
+            icon: const Icon(Icons.chat_bubble_outline),
+          ),
               const _MenuItem(icon: Icons.person, label: 'Mi perfil', routeName: 'profile'),
               const _MenuItem(icon: Icons.two_wheeler, label: 'Mis motocicletas', routeName: 'motorcycles'),
               const _MenuItem(icon: Icons.storefront, label: 'Marketplace', routeName: 'marketplace'),
@@ -62,6 +67,7 @@ class _HomePageState extends State<HomePage> {
               const _MenuItem(icon: Icons.inventory_2_outlined, label: 'Mis productos', routeName: 'my-products'),
               const _MenuItem(icon: Icons.favorite_border, label: 'Favoritos', routeName: 'favorites'),
               const _MenuItem(icon: Icons.notifications_outlined, label: AppLocalizations.notifications, routeName: RouteNames.notifications),
+              const _MenuItem(icon: Icons.chat_bubble_outline, label: AppLocalizations.conversations, routeName: RouteNames.conversations),
               const Divider(),
               ListTile(
                 leading: const Icon(Icons.logout),
