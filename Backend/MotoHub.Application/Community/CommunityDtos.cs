@@ -8,6 +8,8 @@ public sealed record PostListQueryDto(
 
 public sealed record CreatePostRequest(string? Content);
 
+public sealed record CreatePostCommentRequest(string? Content);
+
 public sealed record PostAuthorResponse(
     Guid UserId,
     string DisplayName,
@@ -35,3 +37,16 @@ public sealed record PostDetailResponse(
     DateTimeOffset CreatedAt,
     DateTimeOffset UpdatedAt,
     PostStatus Status);
+
+public sealed record PostLikeStateResponse(
+    bool LikedByCurrentUser,
+    int LikeCount);
+
+public sealed record PostCommentResponse(
+    Guid Id,
+    Guid PostId,
+    PostAuthorResponse Author,
+    string Content,
+    DateTimeOffset CreatedAt,
+    DateTimeOffset UpdatedAt,
+    bool IsOwner);

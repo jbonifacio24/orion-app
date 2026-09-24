@@ -163,6 +163,153 @@ public sealed class CommunityServiceTests
         await Assert.ThrowsAsync<ResourceNotFoundException>(() => service.GetByIdAsync(owner.Id, post.Id, default));
     }
 
+    [Fact]
+    public async Task Like_is_idempotent_and_returns_persisted_count_and_state()
+    {
+        await using var context = CreateContext();
+        var author = AddUser(context, "author");
+        var current = AddUser(context, "current");
+        var post = AddPost(context, author, "post", DateTimeOffset.UtcNow);
+        await context.SaveChangesAsync();
+        var service = Service(context);
+
+        var first = await service.LikePostAsync(current.Id, post.Id, default);
+        var second = await service.LikePostAsync(current.Id, post.Id, default);
+
+        Assert.True(first.LikedByCurrentUser);
+        Assert.Equal(1, first.LikeCount);
+        Assert.True(second.LikedByCurrentUser);
+        Assert.Equal(1, second.LikeCount);
+        Assert.Equal(1, await context.PostLikes.CountAsync());
+    }
+
+    [Fact]
+    public async Task Unlike_is_idempotent_and_hard_deletes_the_like()
+    {
+        await using var context = CreateContext();
+        var author = AddUser(context, "author");
+        var current = AddUser(context, "current");
+        var post = AddPost(context, author, "post", DateTimeOffset.UtcNow);
+        context.PostLikes.Add(new PostLike { PostId = post.Id, UserId = current.Id });
+        await context.SaveChangesAsync();
+        var service = Service(context);
+
+        var first = await service.UnlikePostAsync(current.Id, post.Id, default);
+        var second = await service.UnlikePostAsync(current.Id, post.Id, default);
+
+        Assert.False(first.LikedByCurrentUser);
+        Assert.Equal(0, first.LikeCount);
+        Assert.False(second.LikedByCurrentUser);
+        Assert.Equal(0, second.LikeCount);
+        Assert.Empty(await context.PostLikes.ToListAsync());
+    }
+
+    [Fact]
+    public async Task Like_and_unlike_reject_non_visible_posts()
+    {
+        await using var context = CreateContext();
+        var author = AddUser(context, "author");
+        var current = AddUser(context, "current");
+        var draft = AddPost(context, author, "draft", DateTimeOffset.UtcNow, PostStatus.Draft);
+        var deleted = AddPost(context, author, "deleted", DateTimeOffset.UtcNow, isDeleted: true);
+        await context.SaveChangesAsync();
+        var service = Service(context);
+
+        await Assert.ThrowsAsync<ResourceNotFoundException>(() => service.LikePostAsync(current.Id, draft.Id, default));
+        await Assert.ThrowsAsync<ResourceNotFoundException>(() => service.UnlikePostAsync(current.Id, deleted.Id, default));
+    }
+
+    [Fact]
+    public async Task Get_comments_returns_direct_comments_in_ascending_order_with_paging_and_projection()
+    {
+        await using var context = CreateContext();
+        var owner = AddUser(context, "owner", "Post", "Owner");
+        var other = AddUser(context, "other", "Comment", "Author", "/author.png");
+        var post = AddPost(context, owner, "post", DateTimeOffset.UtcNow);
+        var first = AddComment(context, post, other, "first", DateTimeOffset.UtcNow.AddMinutes(-2));
+        var second = AddComment(context, post, owner, "second", DateTimeOffset.UtcNow.AddMinutes(-1));
+        var third = AddComment(context, post, other, "third", DateTimeOffset.UtcNow);
+        AddComment(context, post, other, "reply", DateTimeOffset.UtcNow, parent: first);
+        await context.SaveChangesAsync();
+        var baseTime = DateTimeOffset.UtcNow.AddMinutes(-3);
+        first.CreatedAt = baseTime;
+        second.CreatedAt = baseTime.AddMinutes(1);
+        third.CreatedAt = baseTime.AddMinutes(2);
+        await context.SaveChangesAsync();
+
+        var response = await Service(context).GetCommentsAsync(owner.Id, post.Id, new(PageSize: 2), default);
+        var items = response.Items.ToArray();
+
+        Assert.Equal(3, response.TotalCount);
+        Assert.Equal(2, response.TotalPages);
+        Assert.Equal(new[] { first.Id, second.Id }, response.Items.Select(x => x.Id).ToArray());
+        Assert.Equal("Comment Author", items[0].Author.DisplayName);
+        Assert.Equal("/author.png", items[0].Author.ProfileImageUrl);
+        Assert.False(items[0].IsOwner);
+        Assert.True(items[1].IsOwner);
+        Assert.Equal(third.Id, (await Service(context).GetCommentsAsync(owner.Id, post.Id, new(Page: 2, PageSize: 2), default)).Items.Single().Id);
+    }
+
+    [Fact]
+    public async Task Create_comment_trims_content_sets_server_fields_and_rejects_invalid_lengths()
+    {
+        await using var context = CreateContext();
+        var author = AddUser(context, "author");
+        var post = AddPost(context, author, "post", DateTimeOffset.UtcNow);
+        await context.SaveChangesAsync();
+        var service = Service(context);
+
+        var response = await service.CreateCommentAsync(author.Id, post.Id, new("  hello  "), default);
+        var stored = await context.PostComments.SingleAsync();
+
+        Assert.Equal("hello", stored.Content);
+        Assert.Equal(post.Id, stored.PostId);
+        Assert.Equal(author.Id, stored.AuthorUserId);
+        Assert.Null(stored.ParentCommentId);
+        Assert.NotEqual(default, stored.CreatedAt);
+        Assert.Equal("hello", response.Content);
+        Assert.True(response.IsOwner);
+        await Assert.ThrowsAsync<ValidationException>(() => service.CreateCommentAsync(author.Id, post.Id, new(null), default));
+        await Assert.ThrowsAsync<ValidationException>(() => service.CreateCommentAsync(author.Id, post.Id, new(new string('x', 2001)), default));
+        var exact = await service.CreateCommentAsync(author.Id, post.Id, new(new string('x', 2000)), default);
+        Assert.Equal(2000, exact.Content.Length);
+    }
+
+    [Fact]
+    public async Task Create_comment_rejects_non_visible_post()
+    {
+        await using var context = CreateContext();
+        var author = AddUser(context, "author");
+        var post = AddPost(context, author, "draft", DateTimeOffset.UtcNow, PostStatus.Draft);
+        await context.SaveChangesAsync();
+
+        await Assert.ThrowsAsync<ResourceNotFoundException>(() => Service(context).CreateCommentAsync(author.Id, post.Id, new("comment"), default));
+    }
+
+    [Fact]
+    public async Task Delete_comment_is_owner_only_soft_deletes_and_updates_comment_count()
+    {
+        await using var context = CreateContext();
+        var owner = AddUser(context, "owner");
+        var stranger = AddUser(context, "stranger");
+        var post = AddPost(context, owner, "post", DateTimeOffset.UtcNow);
+        var comment = AddComment(context, post, owner, "comment", DateTimeOffset.UtcNow);
+        var otherPost = AddPost(context, owner, "other", DateTimeOffset.UtcNow);
+        var otherComment = AddComment(context, otherPost, owner, "other comment", DateTimeOffset.UtcNow);
+        await context.SaveChangesAsync();
+        var service = Service(context);
+
+        await Assert.ThrowsAsync<ResourceNotFoundException>(() => service.DeleteCommentAsync(stranger.Id, post.Id, comment.Id, default));
+        await Assert.ThrowsAsync<ResourceNotFoundException>(() => service.DeleteCommentAsync(owner.Id, post.Id, otherComment.Id, default));
+        await service.DeleteCommentAsync(owner.Id, post.Id, comment.Id, default);
+
+        var stored = await context.PostComments.IgnoreQueryFilters().SingleAsync(x => x.Id == comment.Id);
+        Assert.True(stored.IsDeleted);
+        Assert.NotNull(stored.DeletedAt);
+        Assert.Empty((await service.GetCommentsAsync(owner.Id, post.Id, new(), default)).Items);
+        Assert.Equal(0, (await service.GetByIdAsync(owner.Id, post.Id, default)).CommentCount);
+    }
+
     private static CommunityService Service(MotoHubDbContext context) => new(context);
 
     private static User AddUser(MotoHubDbContext context, string userName, string? firstName = null, string? lastName = null, string? image = null)
@@ -201,6 +348,29 @@ public sealed class CommunityServiceTests
         };
         context.Posts.Add(post);
         return post;
+    }
+
+    private static PostComment AddComment(
+        MotoHubDbContext context,
+        Post post,
+        User author,
+        string content,
+        DateTimeOffset createdAt,
+        PostComment? parent = null)
+    {
+        var comment = new PostComment
+        {
+            PostId = post.Id,
+            AuthorUserId = author.Id,
+            Author = author,
+            ParentCommentId = parent?.Id,
+            ParentComment = parent,
+            Content = content,
+            CreatedAt = createdAt,
+            UpdatedAt = createdAt
+        };
+        context.PostComments.Add(comment);
+        return comment;
     }
 
     private static MotoHubDbContext CreateContext()

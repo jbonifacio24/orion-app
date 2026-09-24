@@ -33,4 +33,36 @@ public sealed class PostsController(ICommunityService communityService) : Curren
         await communityService.DeleteAsync(CurrentUserId(), id, cancellationToken);
         return NoContent();
     }
+
+    [HttpPost("{postId:guid}/likes")]
+    public Task<PostLikeStateResponse> Like(Guid postId, CancellationToken cancellationToken)
+        => communityService.LikePostAsync(CurrentUserId(), postId, cancellationToken);
+
+    [HttpDelete("{postId:guid}/likes")]
+    public Task<PostLikeStateResponse> Unlike(Guid postId, CancellationToken cancellationToken)
+        => communityService.UnlikePostAsync(CurrentUserId(), postId, cancellationToken);
+
+    [HttpGet("{postId:guid}/comments")]
+    public Task<PagedResponse<PostCommentResponse>> GetComments(
+        Guid postId,
+        [FromQuery] PostListQueryDto query,
+        CancellationToken cancellationToken)
+        => communityService.GetCommentsAsync(CurrentUserId(), postId, query, cancellationToken);
+
+    [HttpPost("{postId:guid}/comments")]
+    public async Task<IActionResult> CreateComment(
+        Guid postId,
+        CreatePostCommentRequest request,
+        CancellationToken cancellationToken)
+    {
+        var comment = await communityService.CreateCommentAsync(CurrentUserId(), postId, request, cancellationToken);
+        return StatusCode(StatusCodes.Status201Created, comment);
+    }
+
+    [HttpDelete("{postId:guid}/comments/{commentId:guid}")]
+    public async Task<IActionResult> DeleteComment(Guid postId, Guid commentId, CancellationToken cancellationToken)
+    {
+        await communityService.DeleteCommentAsync(CurrentUserId(), postId, commentId, cancellationToken);
+        return NoContent();
+    }
 }
