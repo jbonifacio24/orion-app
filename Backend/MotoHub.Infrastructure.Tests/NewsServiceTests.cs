@@ -153,6 +153,103 @@ public sealed class NewsServiceTests
         Assert.DoesNotContain(nameof(NewsEntity.UpdatedAt), json);
     }
 
+    [Fact]
+    public async Task Get_detail_returns_public_news_with_content_and_public_categories_in_order()
+    {
+        await using var context = CreateContext();
+        var news = AddNews(
+            context,
+            "detail",
+            DateTimeOffset.UtcNow.AddMinutes(-1),
+            NewsStatus.Published,
+            summary: "Summary",
+            content: "Full article content",
+            featuredImageUrl: "https://cdn.example.test/detail.jpg");
+        var first = AddCategory(context, "Alpha", "alpha");
+        var second = AddCategory(context, "Alpha", "alpha-2");
+        var inactive = AddCategory(context, "Inactive", "inactive", isActive: false);
+        var deleted = AddCategory(context, "Deleted", "deleted", isDeleted: true);
+        context.NewsCategoryAssignments.AddRange(
+            new NewsCategoryAssignment { NewsId = news.Id, NewsCategoryId = second.Id },
+            new NewsCategoryAssignment { NewsId = news.Id, NewsCategoryId = deleted.Id },
+            new NewsCategoryAssignment { NewsId = news.Id, NewsCategoryId = first.Id },
+            new NewsCategoryAssignment { NewsId = news.Id, NewsCategoryId = inactive.Id });
+        await context.SaveChangesAsync();
+
+        var detail = await Service(context).GetByIdAsync(news.Id, default);
+
+        Assert.Equal(news.Id, detail.Id);
+        Assert.Equal("detail", detail.Slug);
+        Assert.Equal("detail", detail.Title);
+        Assert.Equal("Summary", detail.Summary);
+        Assert.Equal("Full article content", detail.Content);
+        Assert.Equal("https://cdn.example.test/detail.jpg", detail.FeaturedImageUrl);
+        Assert.Equal(news.PublishedAt, detail.PublishedAt);
+        var expectedCategories = new[] { first, second }
+            .OrderBy(category => category.Name)
+            .ThenBy(category => category.Id)
+            .ToArray();
+        Assert.Equal(expectedCategories.Select(category => category.Id), detail.Categories.Select(x => x.Id));
+        Assert.Equal(expectedCategories.Select(category => category.Slug), detail.Categories.Select(x => x.Slug));
+    }
+
+    [Fact]
+    public async Task Get_detail_returns_empty_categories_when_no_public_category_exists()
+    {
+        await using var context = CreateContext();
+        var news = AddNews(context, "without-public-category", DateTimeOffset.UtcNow, NewsStatus.Published);
+        var inactive = AddCategory(context, "Inactive", "inactive", isActive: false);
+        var deleted = AddCategory(context, "Deleted", "deleted", isDeleted: true);
+        context.NewsCategoryAssignments.AddRange(
+            new NewsCategoryAssignment { NewsId = news.Id, NewsCategoryId = inactive.Id },
+            new NewsCategoryAssignment { NewsId = news.Id, NewsCategoryId = deleted.Id });
+        await context.SaveChangesAsync();
+
+        var detail = await Service(context).GetByIdAsync(news.Id, default);
+
+        Assert.Empty(detail.Categories);
+    }
+
+    [Fact]
+    public async Task Get_detail_does_not_expose_non_public_news()
+    {
+        await using var context = CreateContext();
+        var draft = AddNews(context, "draft-detail", DateTimeOffset.UtcNow, NewsStatus.Draft);
+        var archived = AddNews(context, "archived-detail", DateTimeOffset.UtcNow, NewsStatus.Archived);
+        var withoutDate = AddNews(context, "without-date-detail", null, NewsStatus.Published);
+        var future = AddNews(context, "future-detail", DateTimeOffset.UtcNow.AddMinutes(1), NewsStatus.Published);
+        var deleted = AddNews(context, "deleted-detail", DateTimeOffset.UtcNow, NewsStatus.Published, isDeleted: true);
+        await context.SaveChangesAsync();
+
+        var ids = new[] { Guid.NewGuid(), draft.Id, archived.Id, withoutDate.Id, future.Id, deleted.Id };
+
+        foreach (var id in ids)
+        {
+            await Assert.ThrowsAsync<ResourceNotFoundException>(() => Service(context).GetByIdAsync(id, default));
+        }
+    }
+
+    [Fact]
+    public async Task Get_detail_dto_exposes_content_but_not_internal_fields()
+    {
+        await using var context = CreateContext();
+        var news = AddNews(context, "private-fields", DateTimeOffset.UtcNow, NewsStatus.Published, content: "Visible content");
+        await context.SaveChangesAsync();
+
+        var detail = await Service(context).GetByIdAsync(news.Id, default);
+        var json = JsonSerializer.Serialize(detail, new JsonSerializerOptions { PropertyNamingPolicy = null });
+
+        Assert.Contains("Visible content", json);
+        Assert.Contains(nameof(NewsEntity.Content), json);
+        Assert.DoesNotContain(nameof(NewsEntity.AuthorUserId), json);
+        Assert.DoesNotContain(nameof(NewsEntity.RowVersion), json);
+        Assert.DoesNotContain(nameof(NewsEntity.IsDeleted), json);
+        Assert.DoesNotContain(nameof(NewsEntity.DeletedAt), json);
+        Assert.DoesNotContain(nameof(NewsEntity.Status), json);
+        Assert.DoesNotContain(nameof(NewsEntity.CreatedAt), json);
+        Assert.DoesNotContain(nameof(NewsEntity.UpdatedAt), json);
+    }
+
     private static NewsService Service(MotoHubDbContext context) => new(context);
 
     private static MotoHubDbContext CreateContext()
@@ -170,7 +267,8 @@ public sealed class NewsServiceTests
         NewsStatus status,
         bool isDeleted = false,
         string? summary = null,
-        string content = "Content")
+        string content = "Content",
+        string? featuredImageUrl = null)
     {
         var news = new NewsEntity
         {
@@ -178,6 +276,7 @@ public sealed class NewsServiceTests
             Slug = slug,
             Summary = summary,
             Content = content,
+            FeaturedImageUrl = featuredImageUrl,
             Status = status,
             PublishedAt = publishedAt,
             IsDeleted = isDeleted,

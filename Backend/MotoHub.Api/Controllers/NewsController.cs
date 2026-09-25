@@ -16,6 +16,10 @@ public sealed class NewsController(INewsService newsService) : ControllerBase
         CancellationToken cancellationToken)
         => newsService.GetFeedAsync(query, cancellationToken);
 
+    [HttpGet("{id:guid}")]
+    public Task<NewsDetailResponse> GetById(Guid id, CancellationToken cancellationToken)
+        => newsService.GetByIdAsync(id, cancellationToken);
+
     [HttpGet("categories")]
     public Task<IReadOnlyCollection<NewsCategoryResponse>> GetCategories(CancellationToken cancellationToken)
         => newsService.GetCategoriesAsync(cancellationToken);

@@ -82,6 +82,48 @@ public sealed class NewsService(MotoHubDbContext dbContext) : INewsService
         return new PagedResponse<NewsSummaryResponse>(items, query.Page, query.PageSize, totalCount, totalPages);
     }
 
+    public async Task<NewsDetailResponse> GetByIdAsync(Guid id, CancellationToken cancellationToken)
+    {
+        var now = DateTimeOffset.UtcNow;
+        var row = await dbContext.News
+            .AsNoTracking()
+            .Where(x => x.Id == id &&
+                        !x.IsDeleted &&
+                        x.Status == NewsStatus.Published &&
+                        x.PublishedAt != null &&
+                        x.PublishedAt <= now)
+            .Select(x => new NewsDetailRow
+            {
+                Id = x.Id,
+                Slug = x.Slug,
+                Title = x.Title,
+                Summary = x.Summary,
+                Content = x.Content,
+                FeaturedImageUrl = x.FeaturedImageUrl,
+                PublishedAt = x.PublishedAt!.Value
+            })
+            .SingleOrDefaultAsync(cancellationToken)
+            ?? throw new ResourceNotFoundException("La noticia no existe.");
+
+        var categories = await dbContext.NewsCategoryAssignments
+            .AsNoTracking()
+            .Where(x => x.NewsId == row.Id && x.Category.IsActive && !x.Category.IsDeleted)
+            .OrderBy(x => x.Category.Name)
+            .ThenBy(x => x.Category.Id)
+            .Select(x => new NewsCategoryResponse(x.Category.Id, x.Category.Name, x.Category.Slug))
+            .ToArrayAsync(cancellationToken);
+
+        return new NewsDetailResponse(
+            row.Id,
+            row.Slug,
+            row.Title,
+            row.Summary,
+            row.Content,
+            row.FeaturedImageUrl,
+            categories,
+            row.PublishedAt);
+    }
+
     public async Task<IReadOnlyCollection<NewsCategoryResponse>> GetCategoriesAsync(CancellationToken cancellationToken)
         => await dbContext.NewsCategories
             .AsNoTracking()
@@ -103,6 +145,17 @@ public sealed class NewsService(MotoHubDbContext dbContext) : INewsService
         public string Slug { get; init; } = string.Empty;
         public string Title { get; init; } = string.Empty;
         public string? Summary { get; init; }
+        public string? FeaturedImageUrl { get; init; }
+        public DateTimeOffset PublishedAt { get; init; }
+    }
+
+    private sealed class NewsDetailRow
+    {
+        public Guid Id { get; init; }
+        public string Slug { get; init; } = string.Empty;
+        public string Title { get; init; } = string.Empty;
+        public string? Summary { get; init; }
+        public string Content { get; init; } = string.Empty;
         public string? FeaturedImageUrl { get; init; }
         public DateTimeOffset PublishedAt { get; init; }
     }

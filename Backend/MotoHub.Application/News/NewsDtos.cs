@@ -20,3 +20,13 @@ public sealed record NewsSummaryResponse(
     string? FeaturedImageUrl,
     IReadOnlyCollection<NewsCategoryResponse> Categories,
     DateTimeOffset PublishedAt);
+
+public sealed record NewsDetailResponse(
+    Guid Id,
+    string Slug,
+    string Title,
+    string? Summary,
+    string Content,
+    string? FeaturedImageUrl,
+    IReadOnlyCollection<NewsCategoryResponse> Categories,
+    DateTimeOffset PublishedAt);
