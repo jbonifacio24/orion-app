@@ -93,6 +93,12 @@ import '../../features/community/domain/usecases/like_community_post.dart';
 import '../../features/community/domain/usecases/unlike_community_post.dart';
 import '../../features/community/presentation/cubit/community_feed_cubit.dart';
 import '../../features/community/presentation/cubit/post_detail_cubit.dart';
+import '../../features/news/data/datasources/news_rest_data_source.dart';
+import '../../features/news/data/repositories/news_repository_impl.dart';
+import '../../features/news/domain/repositories/news_repository.dart';
+import '../../features/news/domain/usecases/get_news_categories.dart';
+import '../../features/news/domain/usecases/get_news_feed.dart';
+import '../../features/news/presentation/cubit/news_feed_cubit.dart';
 
 final GetIt getIt = GetIt.instance;
 
@@ -211,4 +217,9 @@ Future<void> configureDependencies() async {
   if (!getIt.isRegistered<DeleteCommunityPost>()) getIt.registerLazySingleton(() => DeleteCommunityPost(getIt<CommunityRepository>()));
   if (!getIt.isRegistered<CommunityFeedCubit>()) getIt.registerFactory(() => CommunityFeedCubit(getIt<GetCommunityFeed>(), getIt<CreateCommunityPost>(), getIt<DeleteCommunityPost>(), getIt<SessionEvents>()));
   if (!getIt.isRegistered<PostDetailCubit>()) getIt.registerFactory(() => PostDetailCubit(getIt<GetCommunityPost>(), getIt<GetCommunityComments>(), getIt<LikeCommunityPost>(), getIt<UnlikeCommunityPost>(), getIt<CreateCommunityComment>(), getIt<DeleteCommunityComment>(), getIt<SessionEvents>()));
+  if (!getIt.isRegistered<NewsRestDataSource>()) getIt.registerLazySingleton(() => NewsRestDataSource(getIt<ApiClient>().dio));
+  if (!getIt.isRegistered<NewsRepository>()) getIt.registerLazySingleton<NewsRepository>(() => NewsRepositoryImpl(getIt<NewsRestDataSource>()));
+  if (!getIt.isRegistered<GetNewsFeed>()) getIt.registerLazySingleton(() => GetNewsFeed(getIt<NewsRepository>()));
+  if (!getIt.isRegistered<GetNewsCategories>()) getIt.registerLazySingleton(() => GetNewsCategories(getIt<NewsRepository>()));
+  if (!getIt.isRegistered<NewsFeedCubit>()) getIt.registerFactory(() => NewsFeedCubit(getIt<GetNewsFeed>(), getIt<GetNewsCategories>(), getIt<SessionEvents>()));
 }

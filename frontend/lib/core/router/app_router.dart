@@ -50,6 +50,8 @@ import '../../features/community/presentation/cubit/post_detail_cubit.dart';
 import '../../features/community/presentation/pages/community_feed_page.dart';
 import '../../features/community/presentation/pages/community_post_detail_page.dart';
 import '../../features/community/presentation/pages/create_community_post_page.dart';
+import '../../features/news/presentation/cubit/news_feed_cubit.dart';
+import '../../features/news/presentation/pages/news_feed_page.dart';
 import '../di/injection.dart';
 import 'route_names.dart';
 import 'router_refresh_notifier.dart';
@@ -156,6 +158,7 @@ GoRouter createAppRouter(AuthCubit authCubit) {
     GoRoute(name: RouteNames.workshops, path: '/workshops', builder: (context, state) => BlocProvider(create: (_) => getIt<WorkshopsCubit>(), child: const WorkshopsPage())),
     GoRoute(name: RouteNames.workshopDetail, path: '/workshops/:id', builder: (context, state) => BlocProvider(create: (_) => getIt<WorkshopDetailCubit>(), child: WorkshopDetailPage(id: state.pathParameters['id']!))),
     GoRoute(name: RouteNames.community, path: RouteNames.communityPath, builder: (context, state) => BlocProvider(create: (_) => getIt<CommunityFeedCubit>(), child: const CommunityFeedPage())),
+    GoRoute(name: RouteNames.news, path: RouteNames.newsPath, builder: (context, state) => BlocProvider(create: (_) => getIt<NewsFeedCubit>(), child: const NewsFeedPage())),
     GoRoute(name: RouteNames.communityCreate, path: RouteNames.communityCreatePath, builder: (context, state) => BlocProvider(create: (_) => getIt<CommunityFeedCubit>(), child: const CreateCommunityPostPage())),
     GoRoute(name: RouteNames.communityPostDetail, path: RouteNames.communityPostDetailPath, builder: (context, state) => BlocProvider(create: (_) => getIt<PostDetailCubit>(), child: CommunityPostDetailPage(postId: state.pathParameters['postId']!))),
     ...theftReportRoutes(),

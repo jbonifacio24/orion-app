@@ -117,4 +117,13 @@ abstract final class AppLocalizations {
   static String communityRetry(Locale locale) => locale.languageCode == 'en' ? 'Retry' : 'Reintentar';
   static String communityCommentRequired(Locale locale) => locale.languageCode == 'en' ? 'Comment is required.' : 'El comentario es obligatorio.';
   static String communityCommentTooLong(Locale locale) => locale.languageCode == 'en' ? 'Comment must be at most 2000 characters.' : 'El comentario debe tener como máximo 2000 caracteres.';
+  static String newsTitle(Locale locale) => locale.languageCode == 'en' ? 'News' : 'Noticias';
+  static String newsAll(Locale locale) => locale.languageCode == 'en' ? 'All' : 'Todas';
+  static String newsCategories(Locale locale) => locale.languageCode == 'en' ? 'Categories' : 'Categorías';
+  static String newsEmpty(Locale locale) => locale.languageCode == 'en' ? 'No news available.' : 'No hay noticias disponibles.';
+  static String newsLoadFailed(Locale locale) => locale.languageCode == 'en' ? 'News could not be loaded.' : 'No se pudieron cargar las noticias.';
+  static String newsCategoriesLoadFailed(Locale locale) => locale.languageCode == 'en' ? 'Categories could not be loaded.' : 'No se pudieron cargar las categorías.';
+  static String newsRetry(Locale locale) => locale.languageCode == 'en' ? 'Retry' : 'Reintentar';
+  static String newsLoadMore(Locale locale) => locale.languageCode == 'en' ? 'Load more' : 'Cargar más';
+  static String newsImageUnavailable(Locale locale) => locale.languageCode == 'en' ? 'Image unavailable' : 'Imagen no disponible';
 }
