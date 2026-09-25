@@ -83,9 +83,16 @@ import '../../features/community/data/datasources/community_rest_data_source.dar
 import '../../features/community/data/repositories/community_repository_impl.dart';
 import '../../features/community/domain/repositories/community_repository.dart';
 import '../../features/community/domain/usecases/create_community_post.dart';
+import '../../features/community/domain/usecases/create_community_comment.dart';
+import '../../features/community/domain/usecases/delete_community_comment.dart';
 import '../../features/community/domain/usecases/delete_community_post.dart';
+import '../../features/community/domain/usecases/get_community_comments.dart';
 import '../../features/community/domain/usecases/get_community_feed.dart';
+import '../../features/community/domain/usecases/get_community_post.dart';
+import '../../features/community/domain/usecases/like_community_post.dart';
+import '../../features/community/domain/usecases/unlike_community_post.dart';
 import '../../features/community/presentation/cubit/community_feed_cubit.dart';
+import '../../features/community/presentation/cubit/post_detail_cubit.dart';
 
 final GetIt getIt = GetIt.instance;
 
@@ -194,7 +201,14 @@ Future<void> configureDependencies() async {
   if (!getIt.isRegistered<CommunityRestDataSource>()) getIt.registerLazySingleton(() => CommunityRestDataSource(getIt<ApiClient>().dio));
   if (!getIt.isRegistered<CommunityRepository>()) getIt.registerLazySingleton<CommunityRepository>(() => CommunityRepositoryImpl(getIt<CommunityRestDataSource>()));
   if (!getIt.isRegistered<GetCommunityFeed>()) getIt.registerLazySingleton(() => GetCommunityFeed(getIt<CommunityRepository>()));
+  if (!getIt.isRegistered<GetCommunityPost>()) getIt.registerLazySingleton(() => GetCommunityPost(getIt<CommunityRepository>()));
+  if (!getIt.isRegistered<LikeCommunityPost>()) getIt.registerLazySingleton(() => LikeCommunityPost(getIt<CommunityRepository>()));
+  if (!getIt.isRegistered<UnlikeCommunityPost>()) getIt.registerLazySingleton(() => UnlikeCommunityPost(getIt<CommunityRepository>()));
+  if (!getIt.isRegistered<GetCommunityComments>()) getIt.registerLazySingleton(() => GetCommunityComments(getIt<CommunityRepository>()));
+  if (!getIt.isRegistered<CreateCommunityComment>()) getIt.registerLazySingleton(() => CreateCommunityComment(getIt<CommunityRepository>()));
+  if (!getIt.isRegistered<DeleteCommunityComment>()) getIt.registerLazySingleton(() => DeleteCommunityComment(getIt<CommunityRepository>()));
   if (!getIt.isRegistered<CreateCommunityPost>()) getIt.registerLazySingleton(() => CreateCommunityPost(getIt<CommunityRepository>()));
   if (!getIt.isRegistered<DeleteCommunityPost>()) getIt.registerLazySingleton(() => DeleteCommunityPost(getIt<CommunityRepository>()));
   if (!getIt.isRegistered<CommunityFeedCubit>()) getIt.registerFactory(() => CommunityFeedCubit(getIt<GetCommunityFeed>(), getIt<CreateCommunityPost>(), getIt<DeleteCommunityPost>(), getIt<SessionEvents>()));
+  if (!getIt.isRegistered<PostDetailCubit>()) getIt.registerFactory(() => PostDetailCubit(getIt<GetCommunityPost>(), getIt<GetCommunityComments>(), getIt<LikeCommunityPost>(), getIt<UnlikeCommunityPost>(), getIt<CreateCommunityComment>(), getIt<DeleteCommunityComment>(), getIt<SessionEvents>()));
 }

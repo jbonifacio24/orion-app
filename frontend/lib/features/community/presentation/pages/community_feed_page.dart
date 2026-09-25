@@ -40,6 +40,11 @@ class _CommunityFeedPageState extends State<CommunityFeedPage> {
     if (mounted && post != null) context.read<CommunityFeedCubit>().insertCreatedPost(post);
   }
 
+  Future<void> _openDetail(String postId) async {
+    await context.pushNamed(RouteNames.communityPostDetail, pathParameters: {'postId': postId});
+    if (mounted) await context.read<CommunityFeedCubit>().refresh();
+  }
+
   Future<void> _confirmDelete(CommunityPost post) async {
     final locale = Localizations.localeOf(context);
     final confirmed = await showDialog<bool>(
@@ -98,7 +103,7 @@ class _CommunityFeedPageState extends State<CommunityFeedPage> {
     if (state.failure != null && state.items.isEmpty) {
       return _ErrorContent(
         message: state.failure!,
-        retryLabel: AppLocalizations.retry,
+        retryLabel: AppLocalizations.communityRetry(locale),
         onRetry: context.read<CommunityFeedCubit>().retry,
       );
     }
@@ -129,7 +134,7 @@ class _CommunityFeedPageState extends State<CommunityFeedPage> {
             if (state.loadingMoreFailure != null) {
               return _ErrorContent(
                 message: state.loadingMoreFailure!,
-                retryLabel: AppLocalizations.retry,
+                retryLabel: AppLocalizations.communityRetry(locale),
                 onRetry: context.read<CommunityFeedCubit>().retryLoadMore,
               );
             }
@@ -138,6 +143,7 @@ class _CommunityFeedPageState extends State<CommunityFeedPage> {
           final post = state.items[index];
           return CommunityPostCard(
             post: post,
+            onOpen: () => _openDetail(post.id),
             onDelete: state.deletingPostId == null ? () => _confirmDelete(post) : null,
             isDeleting: state.deletingPostId == post.id,
           );

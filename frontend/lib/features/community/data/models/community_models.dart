@@ -1,5 +1,8 @@
 import '../../../../core/error/app_failure.dart';
+import '../../domain/entities/community_comment.dart';
+import '../../domain/entities/community_like_state.dart';
 import '../../domain/entities/community_post.dart';
+import '../../domain/entities/paged_community_comments.dart';
 import '../../domain/entities/paged_community_posts.dart';
 import '../../domain/entities/post_author.dart';
 
@@ -17,6 +20,12 @@ DateTime? _optionalDate(Map<String, dynamic> json, String key) {
     if (parsed != null) return parsed.toLocal();
   }
   throw SerializationFailure('La fecha $key no es válida.');
+}
+
+DateTime _requiredDate(Map<String, dynamic> json, String key) {
+  final value = _optionalDate(json, key);
+  if (value == null) throw SerializationFailure('La fecha $key es obligatoria.');
+  return value;
 }
 
 class PostAuthorModel extends PostAuthor {
@@ -80,6 +89,70 @@ class PagedCommunityPostsModel extends PagedCommunityPosts {
       items: rawItems.map((item) {
         if (item is! Map<String, dynamic>) throw const SerializationFailure('Una publicación no es válida.');
         return CommunityPostModel.fromJson(item);
+      }).toList(growable: false),
+      page: json['page'] as int? ?? 1,
+      pageSize: json['pageSize'] as int? ?? 20,
+      totalCount: json['totalCount'] as int? ?? 0,
+      totalPages: json['totalPages'] as int? ?? 0,
+    );
+  }
+}
+
+class CommunityLikeStateModel extends CommunityLikeState {
+  const CommunityLikeStateModel({required super.likedByCurrentUser, required super.likeCount});
+
+  factory CommunityLikeStateModel.fromJson(Map<String, dynamic> json) => CommunityLikeStateModel(
+        likedByCurrentUser: json['likedByCurrentUser'] as bool? ?? false,
+        likeCount: json['likeCount'] as int? ?? 0,
+      );
+}
+
+class CommunityCommentModel extends CommunityComment {
+  const CommunityCommentModel({
+    required super.id,
+    required super.postId,
+    required super.author,
+    required super.content,
+    required super.createdAt,
+    required super.isOwner,
+  });
+
+  factory CommunityCommentModel.fromJson(Map<String, dynamic> json) {
+    final author = json['author'];
+    if (author is! Map<String, dynamic>) {
+      throw const SerializationFailure('El autor del comentario no es válido.');
+    }
+    final content = json['content'];
+    if (content is! String) throw const SerializationFailure('El contenido del comentario no es válido.');
+    return CommunityCommentModel(
+      id: _requiredString(json, 'id'),
+      postId: _requiredString(json, 'postId'),
+      author: PostAuthorModel.fromJson(author),
+      content: content,
+      createdAt: _requiredDate(json, 'createdAt'),
+      isOwner: json['isOwner'] as bool? ?? false,
+    );
+  }
+}
+
+class PagedCommunityCommentsModel extends PagedCommunityComments {
+  const PagedCommunityCommentsModel({
+    required super.items,
+    required super.page,
+    required super.pageSize,
+    required super.totalCount,
+    required super.totalPages,
+  });
+
+  factory PagedCommunityCommentsModel.fromJson(Map<String, dynamic> json) {
+    final rawItems = json['items'];
+    if (rawItems is! List<dynamic>) {
+      throw const SerializationFailure('La lista de comentarios no es válida.');
+    }
+    return PagedCommunityCommentsModel(
+      items: rawItems.map((item) {
+        if (item is! Map<String, dynamic>) throw const SerializationFailure('Un comentario no es válido.');
+        return CommunityCommentModel.fromJson(item);
       }).toList(growable: false),
       page: json['page'] as int? ?? 1,
       pageSize: json['pageSize'] as int? ?? 20,

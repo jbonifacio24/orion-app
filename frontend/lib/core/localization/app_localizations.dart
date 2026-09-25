@@ -104,4 +104,17 @@ abstract final class AppLocalizations {
   static String communityCharacterCount(Locale locale, int current, int max) => locale.languageCode == 'en' ? '$current / $max' : '$current / $max';
   static String communityComments(Locale locale) => locale.languageCode == 'en' ? 'comments' : 'comentarios';
   static String communityLikes(Locale locale) => locale.languageCode == 'en' ? 'likes' : 'me gusta';
+  static String communityDetail(Locale locale) => locale.languageCode == 'en' ? 'Post' : 'Publicación';
+  static String communityLike(Locale locale) => locale.languageCode == 'en' ? 'Like' : 'Me gusta';
+  static String communityUnlike(Locale locale) => locale.languageCode == 'en' ? 'Unlike' : 'Quitar me gusta';
+  static String communityCommentsTitle(Locale locale) => locale.languageCode == 'en' ? 'Comments' : 'Comentarios';
+  static String communityCommentHint(Locale locale) => locale.languageCode == 'en' ? 'Write a comment' : 'Escribe un comentario';
+  static String communitySendComment(Locale locale) => locale.languageCode == 'en' ? 'Send comment' : 'Enviar comentario';
+  static String communityDeleteComment(Locale locale) => locale.languageCode == 'en' ? 'Delete comment' : 'Eliminar comentario';
+  static String communityDeleteCommentConfirmation(Locale locale) => locale.languageCode == 'en' ? 'This comment will be deleted.' : 'Este comentario se eliminará.';
+  static String communityNoComments(Locale locale) => locale.languageCode == 'en' ? 'No comments yet.' : 'Aún no hay comentarios.';
+  static String communityUnavailable(Locale locale) => locale.languageCode == 'en' ? 'Post unavailable.' : 'Publicación no disponible.';
+  static String communityRetry(Locale locale) => locale.languageCode == 'en' ? 'Retry' : 'Reintentar';
+  static String communityCommentRequired(Locale locale) => locale.languageCode == 'en' ? 'Comment is required.' : 'El comentario es obligatorio.';
+  static String communityCommentTooLong(Locale locale) => locale.languageCode == 'en' ? 'Comment must be at most 2000 characters.' : 'El comentario debe tener como máximo 2000 caracteres.';
 }

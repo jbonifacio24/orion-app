@@ -3,8 +3,11 @@ import 'dart:async';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:motohub/core/auth/session_events.dart';
 import 'package:motohub/core/error/app_failure.dart';
+import 'package:motohub/features/community/domain/entities/community_comment.dart';
+import 'package:motohub/features/community/domain/entities/community_like_state.dart';
 import 'package:motohub/features/community/domain/entities/community_post.dart';
 import 'package:motohub/features/community/domain/entities/paged_community_posts.dart';
+import 'package:motohub/features/community/domain/entities/paged_community_comments.dart';
 import 'package:motohub/features/community/domain/entities/post_author.dart';
 import 'package:motohub/features/community/domain/repositories/community_repository.dart';
 import 'package:motohub/features/community/domain/usecases/create_community_post.dart';
@@ -236,6 +239,24 @@ class _FakeCommunityRepository implements CommunityRepository {
     if (failRefresh && _requestCount++ > 0) return Future.error(const NetworkFailure('No se pudo actualizar.'));
     return Future.value(pages[page] ?? _page([], page: page, totalPages: page, totalCount: 0));
   }
+
+  @override
+  Future<CommunityPost> getPost(String postId) => Future.value(_post(postId));
+
+  @override
+  Future<CommunityLikeState> likePost(String postId) => Future.value(const CommunityLikeState(likedByCurrentUser: true, likeCount: 1));
+
+  @override
+  Future<CommunityLikeState> unlikePost(String postId) => Future.value(const CommunityLikeState(likedByCurrentUser: false, likeCount: 0));
+
+  @override
+  Future<PagedCommunityComments> getComments({required String postId, int page = 1, int pageSize = 20}) => Future.value(PagedCommunityComments(items: const [], page: page, pageSize: pageSize, totalCount: 0, totalPages: 0));
+
+  @override
+  Future<CommunityComment> createComment({required String postId, required String content}) => Future.error(UnimplementedError());
+
+  @override
+  Future<void> deleteComment({required String postId, required String commentId}) => Future.value();
 
   @override
   Future<CommunityPost> createPost(String content) {

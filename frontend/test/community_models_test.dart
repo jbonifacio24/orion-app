@@ -43,4 +43,44 @@ void main() {
       throwsA(isA<Exception>()),
     );
   });
+
+  test('maps detail like state and flat paged comments', () {
+    final like = CommunityLikeStateModel.fromJson({'likedByCurrentUser': true, 'likeCount': 8});
+    final page = PagedCommunityCommentsModel.fromJson({
+      'items': [
+        {
+          'id': 'comment-1',
+          'postId': 'post-1',
+          'author': {'userId': 'user-2', 'displayName': 'Rider Two', 'profileImageUrl': null},
+          'content': 'Buen viaje',
+          'createdAt': '2026-09-24T12:00:00Z',
+          'updatedAt': '2026-09-24T12:00:00Z',
+          'isOwner': true,
+        },
+      ],
+      'page': 1,
+      'pageSize': 20,
+      'totalCount': 1,
+      'totalPages': 1,
+    });
+
+    expect(like.likedByCurrentUser, isTrue);
+    expect(like.likeCount, 8);
+    expect(page.items.single.id, 'comment-1');
+    expect(page.items.single.postId, 'post-1');
+    expect(page.items.single.author.profileImageUrl, isNull);
+    expect(page.items.single.createdAt, DateTime.utc(2026, 9, 24, 12).toLocal());
+    expect(page.items.single.isOwner, isTrue);
+  });
+
+  test('rejects malformed comments', () {
+    expect(
+      () => CommunityCommentModel.fromJson({'id': 'comment-1', 'postId': 'post-1', 'author': null, 'content': 'text', 'createdAt': '2026-09-24T12:00:00Z'}),
+      throwsA(isA<Exception>()),
+    );
+    expect(
+      () => PagedCommunityCommentsModel.fromJson({'items': null}),
+      throwsA(isA<Exception>()),
+    );
+  });
 }

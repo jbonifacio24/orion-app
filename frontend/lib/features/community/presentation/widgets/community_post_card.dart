@@ -5,11 +5,14 @@ import '../../domain/entities/community_post.dart';
 import '../../domain/entities/post_author.dart';
 
 class CommunityPostCard extends StatelessWidget {
-  const CommunityPostCard({required this.post, this.onDelete, this.isDeleting = false, super.key});
+  const CommunityPostCard({required this.post, this.onDelete, this.onOpen, this.onLike, this.isDeleting = false, this.isLikeProcessing = false, super.key});
 
   final CommunityPost post;
   final VoidCallback? onDelete;
+  final VoidCallback? onOpen;
+  final VoidCallback? onLike;
   final bool isDeleting;
+  final bool isLikeProcessing;
 
   @override
   Widget build(BuildContext context) {
@@ -17,15 +20,18 @@ class CommunityPostCard extends StatelessWidget {
     final publishedAt = post.publishedAt;
     return Card(
       margin: EdgeInsets.zero,
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 14, 12, 12),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
+      child: InkWell(
+        onTap: onOpen,
+        borderRadius: BorderRadius.circular(12),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 14, 12, 12),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _Avatar(author: post.author),
+                CommunityAuthorAvatar(author: post.author),
                 const SizedBox(width: 12),
                 Expanded(
                   child: Column(
@@ -56,30 +62,41 @@ class CommunityPostCard extends StatelessWidget {
             const SizedBox(height: 14),
             SelectableText(post.content, style: Theme.of(context).textTheme.bodyLarge),
             const SizedBox(height: 14),
-            Row(
-              children: [
+            Row(children: [
+              if (isLikeProcessing)
+                const SizedBox(width: 48, height: 48, child: Padding(padding: EdgeInsets.all(14), child: CircularProgressIndicator(strokeWidth: 2)))
+              else if (onLike == null)
                 Icon(
                   post.likedByCurrentUser ? Icons.favorite : Icons.favorite_border,
                   size: 20,
                   color: post.likedByCurrentUser ? Theme.of(context).colorScheme.primary : null,
+                )
+              else
+                IconButton(
+                  tooltip: post.likedByCurrentUser ? AppLocalizations.communityUnlike(locale) : AppLocalizations.communityLike(locale),
+                  onPressed: onLike,
+                  icon: Icon(
+                    post.likedByCurrentUser ? Icons.favorite : Icons.favorite_border,
+                    color: post.likedByCurrentUser ? Theme.of(context).colorScheme.primary : null,
+                  ),
                 ),
-                const SizedBox(width: 6),
-                Text('${post.likeCount} ${AppLocalizations.communityLikes(locale)}'),
+              const SizedBox(width: 6),
+              Text('${post.likeCount} ${AppLocalizations.communityLikes(locale)}'),
                 const SizedBox(width: 20),
                 const Icon(Icons.mode_comment_outlined, size: 20),
                 const SizedBox(width: 6),
                 Text('${post.commentCount} ${AppLocalizations.communityComments(locale)}'),
-              ],
-            ),
-          ],
+              ]),
+            ],
+          ),
         ),
       ),
     );
   }
 }
 
-class _Avatar extends StatelessWidget {
-  const _Avatar({required this.author});
+class CommunityAuthorAvatar extends StatelessWidget {
+  const CommunityAuthorAvatar({required this.author, super.key});
 
   final PostAuthor author;
 
