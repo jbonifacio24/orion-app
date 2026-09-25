@@ -135,14 +135,77 @@ public sealed class AdminUsersEndpointTests : IClassFixture<ApiFactory>
         Assert.Contains("revokedCount", await revokeResponse.Content.ReadAsStringAsync(), StringComparison.OrdinalIgnoreCase);
     }
 
+    [Fact]
+    public async Task Anonymous_roles_request_returns_401()
+    {
+        var response = await factory.CreateClient().PutAsJsonAsync(
+            $"/api/admin/users/{Guid.NewGuid()}/roles",
+            new { roles = new[] { "Admin" }, concurrencyToken = "AQ==" });
+
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task Non_admin_roles_request_returns_403()
+    {
+        var client = factory.CreateClient();
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", CreateToken("User"));
+
+        var response = await client.PutAsJsonAsync(
+            $"/api/admin/users/{Guid.NewGuid()}/roles",
+            new { roles = new[] { "Admin" }, concurrencyToken = "AQ==" });
+
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task Admin_can_replace_roles()
+    {
+        var seeded = await SeedAdminUsersAsync();
+        var client = factory.CreateClient();
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(
+            "Bearer",
+            CreateToken("Admin", seeded.ActorId));
+
+        var response = await client.PutAsJsonAsync(
+            $"/api/admin/users/{seeded.TargetId}/roles",
+            new { roles = new[] { seeded.RoleName }, concurrencyToken = seeded.TargetConcurrencyToken });
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Contains("roles", await response.Content.ReadAsStringAsync(), StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task Admin_roles_request_with_stale_token_returns_409()
+    {
+        var seeded = await SeedAdminUsersAsync();
+        var client = factory.CreateClient();
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(
+            "Bearer",
+            CreateToken("Admin", seeded.ActorId));
+
+        var response = await client.PutAsJsonAsync(
+            $"/api/admin/users/{seeded.TargetId}/roles",
+            new { roles = new[] { seeded.RoleName }, concurrencyToken = "AQ==" });
+
+        Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
+    }
+
     private async Task<ApiAdminSeed> SeedAdminUsersAsync()
     {
         var actorId = Guid.NewGuid();
         var targetId = Guid.NewGuid();
+        var roleName = $"ApiTestRole-{Guid.NewGuid():N}";
         using var scope = factory.Services.CreateScope();
         var context = scope.ServiceProvider.GetRequiredService<MotoHubDbContext>();
         var adminRole = await context.Set<MotoHubIdentityRole>()
             .FirstAsync(role => role.NormalizedName == "ADMIN");
+        context.Set<MotoHubIdentityRole>().Add(new MotoHubIdentityRole
+        {
+            Id = Guid.NewGuid(),
+            Name = roleName,
+            NormalizedName = roleName.ToUpperInvariant()
+        });
         context.Set<MotoHubIdentityUser>().AddRange(
             IdentityUser(actorId, $"api-admin-{actorId:N}", $"api-admin-{actorId:N}@example.com"),
             IdentityUser(targetId, $"api-target-{targetId:N}", $"api-target-{targetId:N}@example.com"));
@@ -156,7 +219,7 @@ public sealed class AdminUsersEndpointTests : IClassFixture<ApiFactory>
             DomainUser(targetId, $"api-target-{targetId:N}", $"api-target-{targetId:N}@example.com", [4, 5, 6]));
         await context.SaveChangesAsync();
         var target = await context.Users.IgnoreQueryFilters().SingleAsync(user => user.Id == targetId);
-        return new ApiAdminSeed(actorId, targetId, Convert.ToBase64String(target.RowVersion));
+        return new ApiAdminSeed(actorId, targetId, Convert.ToBase64String(target.RowVersion), roleName);
     }
 
     private static MotoHubIdentityUser IdentityUser(Guid id, string userName, string email)
@@ -167,7 +230,9 @@ public sealed class AdminUsersEndpointTests : IClassFixture<ApiFactory>
             NormalizedUserName = userName.ToUpperInvariant(),
             Email = email,
             NormalizedEmail = email.ToUpperInvariant(),
-            EmailConfirmed = true
+            EmailConfirmed = true,
+            SecurityStamp = Guid.NewGuid().ToString(),
+            ConcurrencyStamp = Guid.NewGuid().ToString()
         };
 
     private static User DomainUser(Guid id, string userName, string email, byte[] rowVersion)
@@ -201,5 +266,9 @@ public sealed class AdminUsersEndpointTests : IClassFixture<ApiFactory>
             [role]).Token;
     }
 
-    private sealed record ApiAdminSeed(Guid ActorId, Guid TargetId, string TargetConcurrencyToken);
+    private sealed record ApiAdminSeed(
+        Guid ActorId,
+        Guid TargetId,
+        string TargetConcurrencyToken,
+        string RoleName);
 }

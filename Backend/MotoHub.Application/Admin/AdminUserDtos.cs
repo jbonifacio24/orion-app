@@ -29,6 +29,15 @@ public sealed record AdminSessionRevocationResponse(
     Guid UserId,
     int RevokedCount);
 
+public sealed record AdminUserRolesRequest(
+    IReadOnlyCollection<string>? Roles,
+    string? ConcurrencyToken);
+
+public sealed record AdminUserRolesResponse(
+    Guid UserId,
+    IReadOnlyCollection<string> Roles,
+    string ConcurrencyToken);
+
 public sealed record AdminUserListItemDto(
     Guid Id,
     string UserName,
@@ -76,6 +85,12 @@ public interface IAdminUserService
     Task<AdminSessionRevocationResponse> RevokeSessionsAsync(
         Guid actorUserId,
         Guid userId,
+        string? ipAddress,
+        CancellationToken cancellationToken);
+    Task<AdminUserRolesResponse> ReplaceRolesAsync(
+        Guid actorUserId,
+        Guid userId,
+        AdminUserRolesRequest request,
         string? ipAddress,
         CancellationToken cancellationToken);
 }

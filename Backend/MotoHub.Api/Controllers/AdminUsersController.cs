@@ -44,6 +44,18 @@ public sealed class AdminUsersController(IAdminUserService adminUserService) : C
             HttpContext.Connection.RemoteIpAddress?.ToString(),
             cancellationToken);
 
+    [HttpPut("{userId:guid}/roles")]
+    public Task<AdminUserRolesResponse> ReplaceRoles(
+        Guid userId,
+        [FromBody] AdminUserRolesRequest request,
+        CancellationToken cancellationToken)
+        => adminUserService.ReplaceRolesAsync(
+            GetActorUserId(),
+            userId,
+            request,
+            HttpContext.Connection.RemoteIpAddress?.ToString(),
+            cancellationToken);
+
     private Guid GetActorUserId()
     {
         var value = User.FindFirstValue(ClaimTypes.NameIdentifier)

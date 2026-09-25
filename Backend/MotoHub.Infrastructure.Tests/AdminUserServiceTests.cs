@@ -418,6 +418,147 @@ public sealed class AdminUserServiceTests
             default));
     }
 
+    [Fact]
+    public async Task Replace_roles_applies_complete_set_canonically_and_revokes_sessions()
+    {
+        await using var provider = CreateProvider();
+        await using var scope = provider.CreateAsyncScope();
+        var ids = await SeedMutationDataAsync(scope.ServiceProvider);
+        SetActor(scope.ServiceProvider, ids.AliceUserId);
+        var service = GetService(scope);
+        var context = scope.ServiceProvider.GetRequiredService<MotoHubDbContext>();
+        var target = await context.Users.IgnoreQueryFilters().SingleAsync(x => x.Id == ids.TargetUserId);
+
+        var result = await service.ReplaceRolesAsync(
+            ids.AliceUserId,
+            ids.TargetUserId,
+            new AdminUserRolesRequest([" user ", "ADMIN", "admin"], ToToken(target.RowVersion)),
+            "127.0.0.1",
+            default);
+
+        Assert.Equal(["Admin", "User"], result.Roles);
+        Assert.All(
+            await context.RefreshTokens.Where(x => x.UserId == ids.TargetUserId).ToListAsync(),
+            token => Assert.NotNull(token.RevokedAt));
+        Assert.Contains(
+            await context.Set<IdentityUserRole<Guid>>().Join(
+                context.Set<MotoHubIdentityRole>(), userRole => userRole.RoleId, role => role.Id,
+                (userRole, role) => new { userRole.UserId, role.Name })
+                .Where(x => x.UserId == ids.TargetUserId)
+                .ToListAsync(),
+            role => role.Name == "Admin");
+        Assert.Equal(1, await context.AuditLogs.CountAsync(x => x.Action == "UserRolesChanged"));
+
+        var refreshedTarget = await context.Users.IgnoreQueryFilters().SingleAsync(x => x.Id == ids.TargetUserId);
+        var removedAdmin = await service.ReplaceRolesAsync(
+            ids.AliceUserId,
+            ids.TargetUserId,
+            new AdminUserRolesRequest(["User"], ToToken(refreshedTarget.RowVersion)),
+            null,
+            default);
+        Assert.Equal(["User"], removedAdmin.Roles);
+        Assert.Equal(2, await context.AuditLogs.CountAsync(x => x.Action == "UserRolesChanged"));
+    }
+
+    [Fact]
+    public async Task Replace_roles_no_op_keeps_token_sessions_and_audit_unchanged()
+    {
+        await using var provider = CreateProvider();
+        await using var scope = provider.CreateAsyncScope();
+        var ids = await SeedMutationDataAsync(scope.ServiceProvider);
+        SetActor(scope.ServiceProvider, ids.AliceUserId);
+        var service = GetService(scope);
+        var context = scope.ServiceProvider.GetRequiredService<MotoHubDbContext>();
+        var target = await context.Users.IgnoreQueryFilters().SingleAsync(x => x.Id == ids.TargetUserId);
+        var expectedToken = ToToken(target.RowVersion);
+
+        var result = await service.ReplaceRolesAsync(
+            ids.AliceUserId,
+            ids.TargetUserId,
+            new AdminUserRolesRequest([], expectedToken),
+            null,
+            default);
+
+        Assert.Empty(result.Roles);
+        Assert.Equal(expectedToken, result.ConcurrencyToken);
+        Assert.All(
+            await context.RefreshTokens.Where(x => x.UserId == ids.TargetUserId).ToListAsync(),
+            token => Assert.Null(token.RevokedAt));
+        Assert.Empty(await context.AuditLogs.ToListAsync());
+    }
+
+    [Fact]
+    public async Task Replace_roles_validates_request_token_and_existing_roles()
+    {
+        await using var provider = CreateProvider();
+        await using var scope = provider.CreateAsyncScope();
+        var ids = await SeedMutationDataAsync(scope.ServiceProvider);
+        SetActor(scope.ServiceProvider, ids.AliceUserId);
+        var service = GetService(scope);
+        var context = scope.ServiceProvider.GetRequiredService<MotoHubDbContext>();
+        var target = await context.Users.IgnoreQueryFilters().SingleAsync(x => x.Id == ids.TargetUserId);
+
+        await Assert.ThrowsAsync<ValidationException>(() => service.ReplaceRolesAsync(
+            ids.AliceUserId, ids.TargetUserId, new AdminUserRolesRequest(null, ToToken(target.RowVersion)), null, default));
+        await Assert.ThrowsAsync<ValidationException>(() => service.ReplaceRolesAsync(
+            ids.AliceUserId, ids.TargetUserId, new AdminUserRolesRequest([""], ToToken(target.RowVersion)), null, default));
+        await Assert.ThrowsAsync<ValidationException>(() => service.ReplaceRolesAsync(
+            ids.AliceUserId, ids.TargetUserId, new AdminUserRolesRequest(["Unknown"], ToToken(target.RowVersion)), null, default));
+        await Assert.ThrowsAsync<ValidationException>(() => service.ReplaceRolesAsync(
+            ids.AliceUserId, ids.TargetUserId, new AdminUserRolesRequest(["User"], null), null, default));
+        await Assert.ThrowsAsync<ValidationException>(() => service.ReplaceRolesAsync(
+            ids.AliceUserId, ids.TargetUserId, new AdminUserRolesRequest(["User"], "bad-token"), null, default));
+        await Assert.ThrowsAsync<ConflictException>(() => service.ReplaceRolesAsync(
+            ids.AliceUserId, ids.TargetUserId, new AdminUserRolesRequest(["User"], ToToken([99])), null, default));
+    }
+
+    [Fact]
+    public async Task Replace_roles_rejects_inconsistent_targets_and_self_admin_removal()
+    {
+        await using var provider = CreateProvider();
+        await using var scope = provider.CreateAsyncScope();
+        var ids = await SeedMutationDataAsync(scope.ServiceProvider);
+        SetActor(scope.ServiceProvider, ids.AliceUserId);
+        var service = GetService(scope);
+        var context = scope.ServiceProvider.GetRequiredService<MotoHubDbContext>();
+        var actor = await context.Users.IgnoreQueryFilters().SingleAsync(x => x.Id == ids.AliceUserId);
+
+        await Assert.ThrowsAsync<ResourceNotFoundException>(() => service.ReplaceRolesAsync(
+            ids.AliceUserId, Guid.NewGuid(), new AdminUserRolesRequest(["User"], ToToken([1])), null, default));
+        await Assert.ThrowsAsync<ConflictException>(() => service.ReplaceRolesAsync(
+            ids.AliceUserId, ids.MissingProfileUserId, new AdminUserRolesRequest(["User"], ToToken([1])), null, default));
+        await Assert.ThrowsAsync<ConflictException>(() => service.ReplaceRolesAsync(
+            ids.AliceUserId, ids.DeletedUserId, new AdminUserRolesRequest(["User"], ToToken([9, 9, 9])), null, default));
+        await Assert.ThrowsAsync<ConflictException>(() => service.ReplaceRolesAsync(
+            ids.AliceUserId, ids.AliceUserId, new AdminUserRolesRequest(["User"], ToToken(actor.RowVersion)), null, default));
+
+        var allowed = await service.ReplaceRolesAsync(
+            ids.AliceUserId, ids.AliceUserId, new AdminUserRolesRequest(["Admin"], ToToken(actor.RowVersion)), null, default);
+        Assert.Equal(["Admin"], allowed.Roles);
+    }
+
+    [Fact]
+    public async Task Replace_roles_rejects_an_actor_without_current_admin_state()
+    {
+        await using var provider = CreateProvider();
+        await using var scope = provider.CreateAsyncScope();
+        var ids = await SeedMutationDataAsync(scope.ServiceProvider);
+        SetActor(scope.ServiceProvider, ids.AliceUserId);
+        var service = GetService(scope);
+        var context = scope.ServiceProvider.GetRequiredService<MotoHubDbContext>();
+        var target = await context.Users.IgnoreQueryFilters().SingleAsync(x => x.Id == ids.TargetUserId);
+        context.Set<IdentityUserRole<Guid>>().RemoveRange(
+            context.Set<IdentityUserRole<Guid>>().Where(x => x.UserId == ids.AliceUserId));
+        await context.SaveChangesAsync();
+
+        await Assert.ThrowsAsync<AuthenticationException>(() => service.ReplaceRolesAsync(
+            ids.AliceUserId,
+            ids.TargetUserId,
+            new AdminUserRolesRequest(["User"], ToToken(target.RowVersion)),
+            null,
+            default));
+    }
+
     private static IAdminUserService GetService(AsyncServiceScope scope)
         => scope.ServiceProvider.GetRequiredService<IAdminUserService>();
 
@@ -517,7 +658,9 @@ public sealed class AdminUserServiceTests
             NormalizedUserName = userName.ToUpperInvariant(),
             Email = email,
             NormalizedEmail = email.ToUpperInvariant(),
-            EmailConfirmed = emailConfirmed
+            EmailConfirmed = emailConfirmed,
+            SecurityStamp = Guid.NewGuid().ToString(),
+            ConcurrencyStamp = Guid.NewGuid().ToString()
         };
 
     private static Domain.User DomainUser(

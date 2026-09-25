@@ -1,5 +1,6 @@
 using System.Security.Cryptography;
 using System.Text.Json;
+using System.Data;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Storage;
@@ -15,6 +16,8 @@ namespace MotoHub.Infrastructure.Administration;
 public sealed class AdminUserService(
     MotoHubDbContext dbContext,
     ILookupNormalizer lookupNormalizer,
+    UserManager<MotoHubIdentityUser> userManager,
+    RoleManager<MotoHubIdentityRole> roleManager,
     ISessionRevocationService sessionRevocationService,
     IAuditService auditService) : IAdminUserService
 {
@@ -140,9 +143,18 @@ public sealed class AdminUserService(
         if (!request.IsActive && actorUserId == userId)
             throw new ConflictException("Un administrador no puede desactivarse a sí mismo.");
 
-        await using var transaction = await BeginTransactionIfRelationalAsync(cancellationToken);
+        await using var transaction = await BeginTransactionIfRelationalAsync(
+            !request.IsActive && profile.IsActive ? IsolationLevel.Serializable : null,
+            cancellationToken);
         try
         {
+            if (!request.IsActive && profile.IsActive &&
+                await IsOperationalAdminAsync(userId, cancellationToken) &&
+                !await HasOtherOperationalAdminAsync(userId, cancellationToken))
+            {
+                throw new ConflictException("No se puede desactivar el último administrador operativo.");
+            }
+
             dbContext.Entry(profile).Property(x => x.RowVersion).OriginalValue = expectedRowVersion;
             var previousState = profile.IsActive;
             profile.IsActive = request.IsActive;
@@ -209,6 +221,107 @@ public sealed class AdminUserService(
         return new AdminSessionRevocationResponse(userId, revokedCount);
     }
 
+    public async Task<AdminUserRolesResponse> ReplaceRolesAsync(
+        Guid actorUserId,
+        Guid userId,
+        AdminUserRolesRequest request,
+        string? ipAddress,
+        CancellationToken cancellationToken)
+    {
+        if (request is null)
+            throw new ValidationException("El request de roles es obligatorio.");
+        await EnsureOperationalAdminAsync(actorUserId, cancellationToken);
+        var desiredRoleNames = NormalizeRequestedRoles(request.Roles);
+        var desiredRoles = await ResolveRolesAsync(desiredRoleNames, cancellationToken);
+        var identityUser = await FindIdentityUserAsync(userId, cancellationToken);
+        var profile = await FindMutableProfileAsync(userId, cancellationToken);
+        var expectedRowVersion = DecodeConcurrencyToken(request.ConcurrencyToken);
+        if (!CryptographicOperations.FixedTimeEquals(profile.RowVersion, expectedRowVersion))
+            throw new ConflictException("El usuario fue modificado por otro proceso.");
+
+        var currentRoleNames = (await userManager.GetRolesAsync(identityUser))
+            .OrderBy(role => lookupNormalizer.NormalizeName(role), StringComparer.Ordinal)
+            .ToArray();
+        var currentRoleKeys = currentRoleNames
+            .Select(role => lookupNormalizer.NormalizeName(role)!)
+            .ToHashSet(StringComparer.Ordinal);
+        var desiredRoleKeys = desiredRoles
+            .Select(role => lookupNormalizer.NormalizeName(role.Name)!)
+            .ToHashSet(StringComparer.Ordinal);
+        var rolesToRemove = currentRoleNames
+            .Where(role => !desiredRoleKeys.Contains(lookupNormalizer.NormalizeName(role)!))
+            .ToArray();
+        var rolesToAdd = desiredRoles
+            .Where(role => !currentRoleKeys.Contains(lookupNormalizer.NormalizeName(role.Name)!))
+            .Select(role => role.Name!)
+            .ToArray();
+        var rolesChanged = rolesToRemove.Length > 0 || rolesToAdd.Length > 0;
+        if (!rolesChanged)
+        {
+            return new AdminUserRolesResponse(userId, currentRoleNames, ToConcurrencyToken(profile));
+        }
+
+        var removesAdmin = rolesToRemove.Any(role =>
+            string.Equals(lookupNormalizer.NormalizeName(role), lookupNormalizer.NormalizeName(AdminSecurity.AdminRole), StringComparison.Ordinal));
+        if (actorUserId == userId && removesAdmin)
+            throw new ConflictException("Un administrador no puede quitarse a sí mismo el rol Admin.");
+
+        await using var transaction = await BeginTransactionIfRelationalAsync(
+            removesAdmin ? IsolationLevel.Serializable : null,
+            cancellationToken);
+        try
+        {
+            if (removesAdmin && await IsOperationalAdminAsync(userId, cancellationToken) &&
+                !await HasOtherOperationalAdminAsync(userId, cancellationToken))
+            {
+                throw new ConflictException("No se puede eliminar el último administrador operativo.");
+            }
+
+            dbContext.Entry(profile).Property(x => x.RowVersion).OriginalValue = expectedRowVersion;
+            if (rolesToRemove.Length > 0)
+            {
+                EnsureIdentitySuccess(
+                    await userManager.RemoveFromRolesAsync(identityUser, rolesToRemove));
+            }
+            if (rolesToAdd.Length > 0)
+            {
+                EnsureIdentitySuccess(
+                    await userManager.AddToRolesAsync(identityUser, rolesToAdd));
+            }
+            profile.UpdatedAt = DateTimeOffset.UtcNow;
+
+            var revokedCount = await sessionRevocationService.RevokeAllAsync(
+                userId,
+                "Admin roles changed",
+                ipAddress,
+                cancellationToken);
+            if (revokedCount == 0)
+                await SaveWithConcurrencyHandlingAsync(cancellationToken);
+
+            var finalRoles = desiredRoles
+                .Select(role => role.Name!)
+                .OrderBy(role => lookupNormalizer.NormalizeName(role), StringComparer.Ordinal)
+                .ToArray();
+            await auditService.WriteAsync(
+                new AuditEntry(
+                    "UserRolesChanged",
+                    nameof(User),
+                    userId,
+                    OldValuesJson: JsonSerializer.Serialize(new { roles = currentRoleNames }),
+                    NewValuesJson: JsonSerializer.Serialize(new { roles = finalRoles, revokedSessionCount = revokedCount })),
+                cancellationToken);
+
+            if (transaction is not null)
+                await transaction.CommitAsync(cancellationToken);
+
+            return new AdminUserRolesResponse(userId, finalRoles, ToConcurrencyToken(profile));
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            throw new ConflictException("El usuario fue modificado por otro proceso.");
+        }
+    }
+
     private async Task<Dictionary<Guid, string[]>> LoadRolesAsync(
         IEnumerable<Guid> userIds,
         CancellationToken cancellationToken)
@@ -229,6 +342,42 @@ public sealed class AdminUserService(
             .Where(x => x.RoleName != null)
             .GroupBy(x => x.UserId)
             .ToDictionary(x => x.Key, x => x.Select(item => item.RoleName!).ToArray());
+    }
+
+    private string[] NormalizeRequestedRoles(IReadOnlyCollection<string>? roles)
+    {
+        if (roles is null)
+            throw new ValidationException("Roles es obligatorio.");
+
+        var normalizedRoles = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var role in roles)
+        {
+            if (string.IsNullOrWhiteSpace(role) || role.Trim().Length > 100)
+                throw new ValidationException("Cada rol debe ser un nombre válido de hasta 100 caracteres.");
+            normalizedRoles.Add(role.Trim());
+        }
+
+        return normalizedRoles.ToArray();
+    }
+
+    private async Task<MotoHubIdentityRole[]> ResolveRolesAsync(
+        IEnumerable<string> requestedRoles,
+        CancellationToken cancellationToken)
+    {
+        var roles = new List<MotoHubIdentityRole>();
+        foreach (var requestedRole in requestedRoles)
+        {
+            var normalizedRole = lookupNormalizer.NormalizeName(requestedRole);
+            var role = await roleManager.Roles
+                .FirstOrDefaultAsync(x => x.NormalizedName == normalizedRole, cancellationToken);
+            if (role is null)
+                throw new ValidationException($"El rol '{requestedRole}' no existe.");
+            roles.Add(role);
+        }
+
+        return roles
+            .OrderBy(role => lookupNormalizer.NormalizeName(role.Name), StringComparer.Ordinal)
+            .ToArray();
     }
 
     private async Task EnsureOperationalAdminAsync(Guid actorUserId, CancellationToken cancellationToken)
@@ -257,9 +406,38 @@ public sealed class AdminUserService(
             throw new AuthenticationException("El administrador autenticado ya no está operativo.", 403);
     }
 
+    private async Task<bool> IsOperationalAdminAsync(Guid userId, CancellationToken cancellationToken)
+        => await (
+            from userRole in dbContext.Set<IdentityUserRole<Guid>>().AsNoTracking()
+            join role in dbContext.Set<MotoHubIdentityRole>().AsNoTracking()
+                on userRole.RoleId equals role.Id
+            join profile in dbContext.Users.IgnoreQueryFilters().AsNoTracking()
+                on userRole.UserId equals profile.Id
+            where userRole.UserId == userId &&
+                  role.NormalizedName == lookupNormalizer.NormalizeName(AdminSecurity.AdminRole) &&
+                  profile.IsActive && !profile.IsDeleted
+            select userRole.UserId).AnyAsync(cancellationToken);
+
+    private async Task<bool> HasOtherOperationalAdminAsync(Guid excludedUserId, CancellationToken cancellationToken)
+        => await (
+            from userRole in dbContext.Set<IdentityUserRole<Guid>>().AsNoTracking()
+            join role in dbContext.Set<MotoHubIdentityRole>().AsNoTracking()
+                on userRole.RoleId equals role.Id
+            join profile in dbContext.Users.IgnoreQueryFilters().AsNoTracking()
+                on userRole.UserId equals profile.Id
+            where userRole.UserId != excludedUserId &&
+                  role.NormalizedName == lookupNormalizer.NormalizeName(AdminSecurity.AdminRole) &&
+                  profile.IsActive && !profile.IsDeleted
+            select userRole.UserId).AnyAsync(cancellationToken);
+
+    private static void EnsureIdentitySuccess(IdentityResult result)
+    {
+        if (!result.Succeeded)
+            throw new ConflictException("No se pudieron actualizar los roles del usuario.");
+    }
+
     private async Task<MotoHubIdentityUser> FindIdentityUserAsync(Guid userId, CancellationToken cancellationToken)
         => await dbContext.Set<MotoHubIdentityUser>()
-            .AsNoTracking()
             .SingleOrDefaultAsync(x => x.Id == userId, cancellationToken)
             ?? throw new ResourceNotFoundException("El usuario no existe.");
 
@@ -287,10 +465,19 @@ public sealed class AdminUserService(
         }
     }
 
-    private async Task<IDbContextTransaction?> BeginTransactionIfRelationalAsync(CancellationToken cancellationToken)
-        => dbContext.Database.IsRelational()
-            ? await dbContext.Database.BeginTransactionAsync(cancellationToken)
-            : null;
+    private Task<IDbContextTransaction?> BeginTransactionIfRelationalAsync(CancellationToken cancellationToken)
+        => BeginTransactionIfRelationalAsync(null, cancellationToken);
+
+    private async Task<IDbContextTransaction?> BeginTransactionIfRelationalAsync(
+        IsolationLevel? isolationLevel,
+        CancellationToken cancellationToken)
+    {
+        if (!dbContext.Database.IsRelational())
+            return null;
+        return isolationLevel.HasValue
+            ? await dbContext.Database.BeginTransactionAsync(isolationLevel.Value, cancellationToken)
+            : await dbContext.Database.BeginTransactionAsync(cancellationToken);
+    }
 
     private static void ValidateQuery(AdminUserListQuery query)
     {
