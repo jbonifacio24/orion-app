@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using MotoHub.Application;
 using MotoHub.Application.Admin;
 using MotoHub.Application.Errors;
+using MotoHub.Infrastructure.Auditing;
 using MotoHub.Infrastructure.Authentication;
 using MotoHub.Infrastructure.Persistence;
 
@@ -9,9 +10,11 @@ namespace MotoHub.Infrastructure.Administration;
 
 public sealed class AdminAuditQueryService(
     MotoHubDbContext dbContext,
-    IAdminOperationalAccessService adminOperationalAccessService) : IAdminAuditQueryService
+    IAdminOperationalAccessService adminOperationalAccessService,
+    AuditPayloadSanitizer auditPayloadSanitizer) : IAdminAuditQueryService
 {
     private const int MaxPageSize = 50;
+    private const int MaxUserAgentLength = 4096;
 
     public async Task<AdminPagedResponse<AdminAuditLogListItemDto>> ListAsync(
         Guid actorUserId,
@@ -83,6 +86,62 @@ public sealed class AdminAuditQueryService(
             totalCount,
             totalPages);
     }
+
+    public async Task<AdminAuditLogDetailDto> GetByIdAsync(
+        Guid actorUserId,
+        Guid auditLogId,
+        CancellationToken cancellationToken)
+    {
+        await adminOperationalAccessService.EnsureOperationalAdminAsync(actorUserId, cancellationToken);
+
+        var row = await (
+            from audit in dbContext.AuditLogs.AsNoTracking()
+            join domainActor in dbContext.Users.IgnoreQueryFilters().AsNoTracking()
+                on audit.ActorUserId equals (Guid?)domainActor.Id into domainActors
+            from domainActor in domainActors.DefaultIfEmpty()
+            join identityActor in dbContext.Set<MotoHubIdentityUser>().AsNoTracking()
+                on audit.ActorUserId equals (Guid?)identityActor.Id into identityActors
+            from identityActor in identityActors.DefaultIfEmpty()
+            where audit.Id == auditLogId
+            select new
+            {
+                audit.Id,
+                audit.ActorUserId,
+                ActorDisplay = identityActor == null
+                    ? domainActor == null ? null : domainActor.UserName ?? domainActor.Email
+                    : identityActor.UserName ?? identityActor.Email,
+                audit.Action,
+                audit.EntityType,
+                audit.EntityId,
+                audit.OldValuesJson,
+                audit.NewValuesJson,
+                audit.IpAddress,
+                audit.UserAgent,
+                audit.CorrelationId,
+                audit.CreatedAt
+            })
+            .SingleOrDefaultAsync(cancellationToken)
+            ?? throw new ResourceNotFoundException("El registro de auditoría no existe.");
+
+        return new AdminAuditLogDetailDto(
+            row.Id,
+            row.ActorUserId,
+            row.ActorDisplay,
+            row.Action,
+            row.EntityType,
+            row.EntityId,
+            auditPayloadSanitizer.Sanitize(row.OldValuesJson),
+            auditPayloadSanitizer.Sanitize(row.NewValuesJson),
+            row.IpAddress,
+            TruncateUserAgent(row.UserAgent),
+            row.CorrelationId,
+            row.CreatedAt);
+    }
+
+    private static string? TruncateUserAgent(string? userAgent)
+        => userAgent is null || userAgent.Length <= MaxUserAgentLength
+            ? userAgent
+            : userAgent[..MaxUserAgentLength];
 
     private static void ValidateQuery(AdminAuditLogQuery query)
     {

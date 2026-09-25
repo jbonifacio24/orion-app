@@ -1,3 +1,5 @@
+using System.Text.Json;
+
 namespace MotoHub.Application.Admin;
 
 public sealed record AdminPagedResponse<T>(
@@ -56,6 +58,31 @@ public sealed record AdminAuditLogListItemDto(
     string Action,
     string EntityType,
     Guid EntityId,
+    string? CorrelationId,
+    DateTimeOffset CreatedAt);
+
+public enum AuditPayloadStatus
+{
+    Available,
+    Redacted,
+    Unavailable
+}
+
+public sealed record AuditPayloadDto(
+    AuditPayloadStatus Status,
+    JsonElement? Value);
+
+public sealed record AdminAuditLogDetailDto(
+    Guid Id,
+    Guid? ActorUserId,
+    string? ActorDisplay,
+    string Action,
+    string EntityType,
+    Guid EntityId,
+    AuditPayloadDto? OldValues,
+    AuditPayloadDto? NewValues,
+    string? IpAddress,
+    string? UserAgent,
     string? CorrelationId,
     DateTimeOffset CreatedAt);
 
@@ -121,5 +148,10 @@ public interface IAdminAuditQueryService
     Task<AdminPagedResponse<AdminAuditLogListItemDto>> ListAsync(
         Guid actorUserId,
         AdminAuditLogQuery query,
+        CancellationToken cancellationToken);
+
+    Task<AdminAuditLogDetailDto> GetByIdAsync(
+        Guid actorUserId,
+        Guid auditLogId,
         CancellationToken cancellationToken);
 }

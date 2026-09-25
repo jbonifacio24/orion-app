@@ -7,6 +7,7 @@ using MotoHub.Application.Admin;
 using MotoHub.Application.Errors;
 using MotoHub.Domain;
 using MotoHub.Infrastructure.Administration;
+using MotoHub.Infrastructure.Auditing;
 using MotoHub.Infrastructure.Authentication;
 using MotoHub.Infrastructure.Persistence;
 using Xunit;
@@ -35,7 +36,7 @@ public sealed class AdminAuditQueryServiceTests
             result.Items.Where(x => x.ActorUserId == ids.ActorId),
             item => Assert.Equal("actor-name", item.ActorDisplay));
         Assert.Equal("domain-only", result.Items.Single(x => x.ActorUserId == ids.DomainOnlyActorId).ActorDisplay);
-        Assert.Null(result.Items.Single(x => x.ActorUserId is null).ActorDisplay);
+        Assert.Null(result.Items.Single(x => x.ActorUserId == null).ActorDisplay);
 
         var json = System.Text.Json.JsonSerializer.Serialize(result.Items);
         Assert.DoesNotContain("OldValuesJson", json, StringComparison.OrdinalIgnoreCase);
@@ -145,6 +146,61 @@ public sealed class AdminAuditQueryServiceTests
             ids.ActorId, new AdminAuditLogQuery(), default));
     }
 
+    [Fact]
+    public async Task GetById_returns_sanitized_detail_and_does_not_write()
+    {
+        await using var provider = CreateProvider();
+        await using var scope = provider.CreateAsyncScope();
+        var ids = await SeedAsync(scope.ServiceProvider);
+        var service = GetService(scope);
+        var context = scope.ServiceProvider.GetRequiredService<MotoHubDbContext>();
+        var audit = await context.AuditLogs.FirstAsync(x => x.ActorUserId == ids.ActorId && x.Action == "UserDeactivated");
+        var before = await context.AuditLogs.Select(x => new { x.Id, x.OldValuesJson, x.NewValuesJson }).ToListAsync();
+
+        var result = await service.GetByIdAsync(ids.ActorId, audit.Id, default);
+
+        Assert.Equal(audit.Id, result.Id);
+        Assert.Equal("actor-name", result.ActorDisplay);
+        Assert.Equal(AuditPayloadStatus.Redacted, result.OldValues!.Status);
+        Assert.DoesNotContain("hidden", System.Text.Json.JsonSerializer.Serialize(result.OldValues), StringComparison.Ordinal);
+        Assert.Equal(before, await context.AuditLogs.Select(x => new { x.Id, x.OldValuesJson, x.NewValuesJson }).ToListAsync());
+    }
+
+    [Fact]
+    public async Task GetById_returns_not_found_and_handles_unresolvable_actor()
+    {
+        await using var provider = CreateProvider();
+        await using var scope = provider.CreateAsyncScope();
+        var ids = await SeedAsync(scope.ServiceProvider);
+        var service = GetService(scope);
+        var context = scope.ServiceProvider.GetRequiredService<MotoHubDbContext>();
+        var audit = await context.AuditLogs.SingleAsync(x => x.ActorUserId == null);
+
+        var result = await service.GetByIdAsync(ids.ActorId, audit.Id, default);
+
+        Assert.Null(result.ActorUserId);
+        Assert.Null(result.ActorDisplay);
+        Assert.Null(result.OldValues);
+        await Assert.ThrowsAsync<ResourceNotFoundException>(() => service.GetByIdAsync(
+            ids.ActorId, Guid.NewGuid(), default));
+    }
+
+    [Fact]
+    public async Task GetById_keeps_soft_deleted_actor_log_visible()
+    {
+        await using var provider = CreateProvider();
+        await using var scope = provider.CreateAsyncScope();
+        var ids = await SeedAsync(scope.ServiceProvider);
+        var service = GetService(scope);
+        var context = scope.ServiceProvider.GetRequiredService<MotoHubDbContext>();
+        var audit = await context.AuditLogs.SingleAsync(x => x.ActorUserId == ids.SoftDeletedActorId);
+
+        var result = await service.GetByIdAsync(ids.ActorId, audit.Id, default);
+
+        Assert.Equal(ids.SoftDeletedActorId, result.ActorUserId);
+        Assert.Equal("deleted-name", result.ActorDisplay);
+    }
+
     private static IAdminAuditQueryService GetService(AsyncServiceScope scope)
         => scope.ServiceProvider.GetRequiredService<IAdminAuditQueryService>();
 
@@ -158,6 +214,7 @@ public sealed class AdminAuditQueryServiceTests
             .AddRoles<MotoHubIdentityRole>()
             .AddEntityFrameworkStores<MotoHubDbContext>();
         services.AddScoped<IAdminOperationalAccessService, AdminOperationalAccessService>();
+        services.AddScoped<AuditPayloadSanitizer>();
         services.AddScoped<IAdminAuditQueryService, AdminAuditQueryService>();
         return services.BuildServiceProvider(new ServiceProviderOptions { ValidateScopes = true });
     }
@@ -236,7 +293,7 @@ public sealed class AdminAuditQueryServiceTests
                 CreatedAt = start.AddMinutes(2)
             });
         await context.SaveChangesAsync();
-        return new SeededAuditIds(actorId, domainOnlyActorId, entityId);
+        return new SeededAuditIds(actorId, softDeletedActorId, domainOnlyActorId, entityId);
     }
 
     private static MotoHubIdentityUser IdentityUser(Guid id, string userName, string email)
@@ -262,5 +319,9 @@ public sealed class AdminAuditQueryServiceTests
             IsDeleted = isDeleted
         };
 
-    private sealed record SeededAuditIds(Guid ActorId, Guid DomainOnlyActorId, Guid EntityId);
+    private sealed record SeededAuditIds(
+        Guid ActorId,
+        Guid SoftDeletedActorId,
+        Guid DomainOnlyActorId,
+        Guid EntityId);
 }

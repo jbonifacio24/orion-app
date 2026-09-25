@@ -1,6 +1,7 @@
 using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
+using System.Text.Json;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
@@ -282,6 +283,91 @@ public sealed class AdminUsersEndpointTests : IClassFixture<ApiFactory>
         var response = await client.GetAsync("/api/admin/audit-logs");
 
         Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task Admin_can_get_audit_detail_without_leaking_secrets()
+    {
+        var seeded = await SeedAdminUsersAsync();
+        var auditId = Guid.NewGuid();
+        var longUserAgent = new string('a', 5000);
+        using (var scope = factory.Services.CreateScope())
+        {
+            var context = scope.ServiceProvider.GetRequiredService<MotoHubDbContext>();
+            context.AuditLogs.Add(new AuditLog
+            {
+                Id = auditId,
+                ActorUserId = seeded.ActorId,
+                Action = "UserDeactivated",
+                EntityType = "User",
+                EntityId = seeded.TargetId,
+                OldValuesJson = "{\"email\":\"user@example.com\",\"accessToken\":\"detail-secret\",\"profile\":{\"security_stamp\":\"stamp-secret\"}}",
+                NewValuesJson = "[{\"name\":\"safe\",\"refreshTokenHash\":\"hash-secret\"}]",
+                IpAddress = "192.0.2.10",
+                UserAgent = longUserAgent,
+                CorrelationId = "detail-correlation"
+            });
+            await context.SaveChangesAsync();
+        }
+
+        var client = factory.CreateClient();
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(
+            "Bearer",
+            CreateToken("Admin", seeded.ActorId));
+
+        var response = await client.GetAsync($"/api/admin/audit-logs/{auditId}");
+        var body = await response.Content.ReadAsStringAsync();
+        using var document = JsonDocument.Parse(body);
+        var root = document.RootElement;
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Equal("192.0.2.10", root.GetProperty("ipAddress").GetString());
+        Assert.Equal("detail-correlation", root.GetProperty("correlationId").GetString());
+        Assert.Equal(4096, root.GetProperty("userAgent").GetString()!.Length);
+        Assert.Equal("[REDACTED]", root.GetProperty("oldValues").GetProperty("value").GetProperty("accessToken").GetString());
+        Assert.Equal("[REDACTED]", root.GetProperty("newValues").GetProperty("value")[0].GetProperty("refreshTokenHash").GetString());
+        Assert.DoesNotContain("detail-secret", body, StringComparison.Ordinal);
+        Assert.DoesNotContain("stamp-secret", body, StringComparison.Ordinal);
+        Assert.DoesNotContain("hash-secret", body, StringComparison.Ordinal);
+
+        using var verificationScope = factory.Services.CreateScope();
+        var verificationContext = verificationScope.ServiceProvider.GetRequiredService<MotoHubDbContext>();
+        var persisted = await verificationContext.AuditLogs.SingleAsync(x => x.Id == auditId);
+        Assert.Contains("detail-secret", persisted.OldValuesJson, StringComparison.Ordinal);
+        Assert.Equal(5000, persisted.UserAgent!.Length);
+    }
+
+    [Fact]
+    public async Task Anonymous_audit_detail_request_returns_401()
+    {
+        var response = await factory.CreateClient().GetAsync($"/api/admin/audit-logs/{Guid.NewGuid()}");
+
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task Non_admin_audit_detail_request_returns_403()
+    {
+        var client = factory.CreateClient();
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", CreateToken("User"));
+
+        var response = await client.GetAsync($"/api/admin/audit-logs/{Guid.NewGuid()}");
+
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task Admin_audit_detail_for_missing_log_returns_404()
+    {
+        var seeded = await SeedAdminUsersAsync();
+        var client = factory.CreateClient();
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(
+            "Bearer",
+            CreateToken("Admin", seeded.ActorId));
+
+        var response = await client.GetAsync($"/api/admin/audit-logs/{Guid.NewGuid()}");
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
     }
 
     private async Task<ApiAdminSeed> SeedAdminUsersAsync()

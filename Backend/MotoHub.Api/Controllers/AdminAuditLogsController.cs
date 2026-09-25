@@ -21,6 +21,13 @@ public sealed class AdminAuditLogsController(IAdminAuditQueryService adminAuditQ
             query,
             cancellationToken);
 
+    [HttpGet("{id:guid}")]
+    public Task<AdminAuditLogDetailDto> Get(Guid id, CancellationToken cancellationToken)
+        => adminAuditQueryService.GetByIdAsync(
+            GetActorUserId(),
+            id,
+            cancellationToken);
+
     private Guid GetActorUserId()
     {
         var value = User.FindFirstValue(ClaimTypes.NameIdentifier)

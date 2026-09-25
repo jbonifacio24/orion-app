@@ -27,6 +27,8 @@ using MotoHub.Application.Community;
 using MotoHub.Infrastructure.Community;
 using MotoHub.Application.News;
 using MotoHub.Infrastructure.News;
+using MotoHub.Application.Moderation;
+using MotoHub.Infrastructure.Moderation;
 
 namespace MotoHub.Infrastructure;
 
@@ -67,6 +69,7 @@ public static class DependencyInjection
         services.AddScoped<IAuthenticationService, AuthenticationService>();
         services.AddScoped<ISessionRevocationService, SessionRevocationService>();
         services.AddScoped<IAuditService, AuditService>();
+        services.AddScoped<AuditPayloadSanitizer>();
         services.AddScoped<IAdminOperationalAccessService, AdminOperationalAccessService>();
         services.AddScoped<IAdminUserService, AdminUserService>();
         services.AddScoped<IAdminAuditQueryService, AdminAuditQueryService>();
@@ -85,6 +88,7 @@ public static class DependencyInjection
         services.AddScoped<IChatService, ChatService>();
         services.AddScoped<ICommunityService, CommunityService>();
         services.AddScoped<INewsService, NewsService>();
+        services.AddScoped<IModerationReportService, ModerationReportService>();
         services.AddSingleton<ImageFileValidator>();
         services.AddSingleton<IProductImageStorage, LocalProductImageStorage>();
         services.AddScoped<ProductCategorySeeder>();
