@@ -9,3 +9,8 @@ public sealed class AuthenticationException(string message, int statusCode = 400
 {
     public int StatusCode { get; } = statusCode;
 }
+
+public interface ISessionRevocationService
+{
+    Task<int> RevokeAllAsync(Guid userId, string reason, string? ipAddress, CancellationToken cancellationToken);
+}

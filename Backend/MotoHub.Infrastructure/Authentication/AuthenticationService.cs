@@ -15,7 +15,8 @@ public sealed class AuthenticationService(
     JwtTokenService jwtTokenService,
     IEmailSender emailSender,
     IOptions<JwtOptions> jwtOptions,
-    IOptions<AuthOptions> authOptions) : IAuthenticationService
+    IOptions<AuthOptions> authOptions,
+    ISessionRevocationService sessionRevocationService) : IAuthenticationService
 {
     public async Task<AuthResponse> RegisterAsync(RegisterRequest request, string? ipAddress, CancellationToken cancellationToken)
     {
@@ -64,6 +65,11 @@ public sealed class AuthenticationService(
         {
             throw new AuthenticationException("Invalid credentials.", 401);
         }
+        if (!await IsActiveAsync(user.Id, cancellationToken))
+        {
+            await sessionRevocationService.RevokeAllAsync(user.Id, "Inactive user", ipAddress, cancellationToken);
+            throw new AuthenticationException("Invalid credentials.", 401);
+        }
         if (authOptions.Value.RequireConfirmedEmail && !await userManager.IsEmailConfirmedAsync(user))
         {
             throw new AuthenticationException("Email confirmation is required.", 403);
@@ -88,6 +94,11 @@ public sealed class AuthenticationService(
 
         var user = await userManager.FindByIdAsync(stored.UserId.ToString())
             ?? throw new AuthenticationException("User is not available.", 401);
+        if (!await IsActiveAsync(user.Id, cancellationToken))
+        {
+            await sessionRevocationService.RevokeAllAsync(user.Id, "Inactive user", ipAddress, cancellationToken);
+            throw new AuthenticationException("Invalid refresh token.", 401);
+        }
         stored.RevokedAt = DateTimeOffset.UtcNow;
         stored.RevokedByIp = ipAddress;
         stored.RevocationReason = "Rotated";
@@ -146,11 +157,20 @@ public sealed class AuthenticationService(
     {
         var user = await userManager.FindByIdAsync(userId.ToString())
             ?? throw new AuthenticationException("User is not available.", 401);
+        if (!await IsActiveAsync(user.Id, cancellationToken))
+        {
+            throw new AuthenticationException("User is not available.", 401);
+        }
         return await MapUserAsync(user, cancellationToken);
     }
 
     private async Task<AuthResponse> IssueSessionAsync(MotoHubIdentityUser identityUser, string? ipAddress, CancellationToken cancellationToken, RefreshToken? replaced = null)
     {
+        if (!await IsActiveAsync(identityUser.Id, cancellationToken))
+        {
+            await sessionRevocationService.RevokeAllAsync(identityUser.Id, "Inactive user", ipAddress, cancellationToken);
+            throw new AuthenticationException("User is not available.", 401);
+        }
         var roles = await userManager.GetRolesAsync(identityUser);
         var (accessToken, expiresAt) = jwtTokenService.Create(identityUser, roles);
         var refreshToken = JwtTokenService.CreateRefreshToken();
@@ -180,24 +200,30 @@ public sealed class AuthenticationService(
         var roles = await userManager.GetRolesAsync(identityUser);
         var profile = await dbContext.Users.IgnoreQueryFilters().SingleOrDefaultAsync(x => x.Id == identityUser.Id, cancellationToken)
             ?? throw new AuthenticationException("User profile is not available.", 401);
+        if (!profile.IsActive || profile.IsDeleted)
+        {
+            throw new AuthenticationException("User is not available.", 401);
+        }
         return new AuthUser(profile.Id, identityUser.Email!, identityUser.UserName!, profile.FirstName, profile.LastName, identityUser.EmailConfirmed, roles.ToArray());
     }
 
     private async Task EnsureRoleAsync(string role, CancellationToken cancellationToken)
     {
+        AdminSecurity.EnsureAutomaticRoleIsNotAdmin(role);
         if (await roleManager.RoleExistsAsync(role)) return;
         EnsureSuccess(await roleManager.CreateAsync(new MotoHubIdentityRole { Name = role }));
     }
 
-    private async Task RevokeAllAsync(Guid userId, string reason, CancellationToken cancellationToken)
+    private Task<int> RevokeAllAsync(Guid userId, string reason, CancellationToken cancellationToken)
+        => sessionRevocationService.RevokeAllAsync(userId, reason, null, cancellationToken);
+
+    private async Task<bool> IsActiveAsync(Guid userId, CancellationToken cancellationToken)
     {
-        var tokens = await dbContext.RefreshTokens.Where(x => x.UserId == userId && x.RevokedAt == null).ToListAsync(cancellationToken);
-        foreach (var token in tokens)
-        {
-            token.RevokedAt = DateTimeOffset.UtcNow;
-            token.RevocationReason = reason;
-        }
-        await dbContext.SaveChangesAsync(cancellationToken);
+        var profile = await dbContext.Users
+            .IgnoreQueryFilters()
+            .AsNoTracking()
+            .SingleOrDefaultAsync(x => x.Id == userId, cancellationToken);
+        return profile is { IsActive: true, IsDeleted: false };
     }
 
     private static void ValidatePassword(string password, string confirmation)

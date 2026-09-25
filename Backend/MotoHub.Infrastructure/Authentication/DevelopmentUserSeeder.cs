@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
+using MotoHub.Application;
 using MotoHub.Domain;
 using MotoHub.Infrastructure.Persistence;
 
@@ -15,6 +16,7 @@ public sealed class DevelopmentUserSeeder(
     public async Task SeedAsync(CancellationToken cancellationToken = default)
     {
         var options = authOptions.Value;
+        AdminSecurity.EnsureAutomaticRoleIsNotAdmin(options.DefaultRole);
         var identityUser = await userManager.FindByEmailAsync(options.DevelopmentUserEmail);
 
         if (identityUser is null)

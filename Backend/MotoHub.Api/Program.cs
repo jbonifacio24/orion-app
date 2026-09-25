@@ -14,6 +14,7 @@ using Microsoft.Extensions.Options;
 using MotoHub.Api.Hubs;
 using MotoHub.Api.Realtime;
 using MotoHub.Application.Chat;
+using MotoHub.Application;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -61,7 +62,10 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             }
         };
     });
-builder.Services.AddAuthorization();
+builder.Services.AddAuthorization(options =>
+{
+    options.AddPolicy(AdminSecurity.AdminAccessPolicy, policy => policy.RequireRole(AdminSecurity.AdminRole));
+});
 builder.Services.AddRateLimiter(options =>
 {
     options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
@@ -102,10 +106,14 @@ builder.Services.AddCors(options =>
 
 var app = builder.Build();
 
-if (app.Environment.IsDevelopment())
+await using (var scope = app.Services.CreateAsyncScope())
 {
-    await using var scope = app.Services.CreateAsyncScope();
-    await scope.ServiceProvider.GetRequiredService<DevelopmentUserSeeder>().SeedAsync();
+    if (app.Environment.IsDevelopment())
+    {
+        await scope.ServiceProvider.GetRequiredService<DevelopmentUserSeeder>().SeedAsync();
+    }
+
+    await scope.ServiceProvider.GetRequiredService<AdminBootstrapper>().SeedAsync();
 }
 
 var imageStorageOptions = app.Services.GetRequiredService<IOptions<ProductImageStorageOptions>>().Value;

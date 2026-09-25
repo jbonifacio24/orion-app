@@ -8,3 +8,8 @@ public sealed class AuthOptions
     public string DevelopmentUserEmail { get; set; } = "demo@motohub.local";
     public string DevelopmentUserPassword { get; set; } = "MotoHubDemo2026";
 }
+
+public sealed class AdminBootstrapOptions
+{
+    public string? UserEmail { get; set; }
+}
