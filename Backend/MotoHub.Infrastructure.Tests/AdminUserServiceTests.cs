@@ -1,10 +1,15 @@
 using System.Text.Json;
+using System.Security.Claims;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.Extensions.DependencyInjection;
+using MotoHub.Application;
 using MotoHub.Application.Admin;
 using MotoHub.Application.Errors;
+using MotoHub.Domain;
+using MotoHub.Infrastructure.Auditing;
 using MotoHub.Infrastructure.Administration;
 using MotoHub.Infrastructure.Authentication;
 using MotoHub.Infrastructure.Persistence;
@@ -180,6 +185,239 @@ public sealed class AdminUserServiceTests
             GetService(scope).GetAsync(Guid.NewGuid(), default));
     }
 
+    [Fact]
+    public async Task Deactivate_revokes_active_sessions_and_audits_the_change()
+    {
+        await using var provider = CreateProvider();
+        await using var scope = provider.CreateAsyncScope();
+        var ids = await SeedMutationDataAsync(scope.ServiceProvider);
+        SetActor(scope.ServiceProvider, ids.AliceUserId);
+        var service = GetService(scope);
+        var context = scope.ServiceProvider.GetRequiredService<MotoHubDbContext>();
+        var target = await context.Users.IgnoreQueryFilters().SingleAsync(x => x.Id == ids.TargetUserId);
+
+        var result = await service.UpdateStatusAsync(
+            ids.AliceUserId,
+            ids.TargetUserId,
+            new AdminUserStatusRequest(false, ToToken(target.RowVersion)),
+            "127.0.0.1",
+            default);
+
+        Assert.False(result.IsActive);
+        Assert.NotNull(result.ConcurrencyToken);
+        Assert.All(
+            await context.RefreshTokens.Where(x => x.UserId == ids.TargetUserId).ToListAsync(),
+            token => Assert.NotNull(token.RevokedAt));
+        var audit = await context.AuditLogs.SingleAsync(x => x.Action == "UserDeactivated");
+        Assert.Equal(ids.TargetUserId, audit.EntityId);
+        Assert.Contains("isActive", audit.OldValuesJson, StringComparison.Ordinal);
+        Assert.DoesNotContain("token", audit.NewValuesJson, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("hash", audit.NewValuesJson, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task Activate_does_not_restore_revoked_sessions_and_is_idempotent()
+    {
+        await using var provider = CreateProvider();
+        await using var scope = provider.CreateAsyncScope();
+        var ids = await SeedMutationDataAsync(scope.ServiceProvider);
+        SetActor(scope.ServiceProvider, ids.AliceUserId);
+        var service = GetService(scope);
+        var context = scope.ServiceProvider.GetRequiredService<MotoHubDbContext>();
+        var target = await context.Users.IgnoreQueryFilters().SingleAsync(x => x.Id == ids.TargetUserId);
+
+        var deactivated = await service.UpdateStatusAsync(
+            ids.AliceUserId,
+            ids.TargetUserId,
+            new AdminUserStatusRequest(false, ToToken(target.RowVersion)),
+            null,
+            default);
+        var activated = await service.UpdateStatusAsync(
+            ids.AliceUserId,
+            ids.TargetUserId,
+            new AdminUserStatusRequest(true, deactivated.ConcurrencyToken),
+            null,
+            default);
+        var noOp = await service.UpdateStatusAsync(
+            ids.AliceUserId,
+            ids.TargetUserId,
+            new AdminUserStatusRequest(true, activated.ConcurrencyToken),
+            null,
+            default);
+
+        Assert.True(activated.IsActive);
+        Assert.True(noOp.IsActive);
+        Assert.Equal(activated.ConcurrencyToken, noOp.ConcurrencyToken);
+        Assert.All(
+            await context.RefreshTokens.Where(x => x.UserId == ids.TargetUserId).ToListAsync(),
+            token => Assert.NotNull(token.RevokedAt));
+        Assert.Equal(1, await context.AuditLogs.CountAsync(x => x.Action == "UserActivated"));
+    }
+
+    [Fact]
+    public async Task Status_rejects_invalid_stale_and_missing_concurrency_tokens()
+    {
+        await using var provider = CreateProvider();
+        await using var scope = provider.CreateAsyncScope();
+        var ids = await SeedMutationDataAsync(scope.ServiceProvider);
+        SetActor(scope.ServiceProvider, ids.AliceUserId);
+        var service = GetService(scope);
+        var context = scope.ServiceProvider.GetRequiredService<MotoHubDbContext>();
+        var target = await context.Users.IgnoreQueryFilters().SingleAsync(x => x.Id == ids.TargetUserId);
+
+        await Assert.ThrowsAsync<ValidationException>(() => service.UpdateStatusAsync(
+            ids.AliceUserId,
+            ids.TargetUserId,
+            new AdminUserStatusRequest(false, null),
+            null,
+            default));
+        await Assert.ThrowsAsync<ValidationException>(() => service.UpdateStatusAsync(
+            ids.AliceUserId,
+            ids.TargetUserId,
+            new AdminUserStatusRequest(false, "not-base64"),
+            null,
+            default));
+        await Assert.ThrowsAsync<ConflictException>(() => service.UpdateStatusAsync(
+            ids.AliceUserId,
+            ids.TargetUserId,
+            new AdminUserStatusRequest(false, ToToken([99])),
+            null,
+            default));
+        Assert.True((await context.Users.IgnoreQueryFilters().SingleAsync(x => x.Id == ids.TargetUserId)).IsActive);
+    }
+
+    [Fact]
+    public async Task Status_rejects_missing_deleted_and_self_targets()
+    {
+        await using var provider = CreateProvider();
+        await using var scope = provider.CreateAsyncScope();
+        var ids = await SeedMutationDataAsync(scope.ServiceProvider);
+        SetActor(scope.ServiceProvider, ids.AliceUserId);
+        var service = GetService(scope);
+
+        await Assert.ThrowsAsync<ResourceNotFoundException>(() => service.UpdateStatusAsync(
+            ids.AliceUserId,
+            Guid.NewGuid(),
+            new AdminUserStatusRequest(false, ToToken([1])),
+            null,
+            default));
+        await Assert.ThrowsAsync<ConflictException>(() => service.UpdateStatusAsync(
+            ids.AliceUserId,
+            ids.MissingProfileUserId,
+            new AdminUserStatusRequest(false, ToToken([1])),
+            null,
+            default));
+        await Assert.ThrowsAsync<ConflictException>(() => service.UpdateStatusAsync(
+            ids.AliceUserId,
+            ids.DeletedUserId,
+            new AdminUserStatusRequest(false, ToToken([9, 9, 9])),
+            null,
+            default));
+        var context = scope.ServiceProvider.GetRequiredService<MotoHubDbContext>();
+        var actor = await context.Users.IgnoreQueryFilters().SingleAsync(x => x.Id == ids.AliceUserId);
+        var selfNoOp = await service.UpdateStatusAsync(
+            ids.AliceUserId,
+            ids.AliceUserId,
+            new AdminUserStatusRequest(true, ToToken(actor.RowVersion)),
+            null,
+            default);
+        Assert.True(selfNoOp.IsActive);
+        await Assert.ThrowsAsync<ConflictException>(() => service.UpdateStatusAsync(
+            ids.AliceUserId,
+            ids.AliceUserId,
+            new AdminUserStatusRequest(false, selfNoOp.ConcurrencyToken),
+            null,
+            default));
+    }
+
+    [Fact]
+    public async Task Mutations_reject_an_actor_without_current_admin_state()
+    {
+        await using var provider = CreateProvider();
+        await using var scope = provider.CreateAsyncScope();
+        var ids = await SeedMutationDataAsync(scope.ServiceProvider);
+        SetActor(scope.ServiceProvider, ids.AliceUserId);
+        var service = GetService(scope);
+        var context = scope.ServiceProvider.GetRequiredService<MotoHubDbContext>();
+        var target = await context.Users.IgnoreQueryFilters().SingleAsync(x => x.Id == ids.TargetUserId);
+        var actor = await context.Users.IgnoreQueryFilters().SingleAsync(x => x.Id == ids.AliceUserId);
+
+        context.Set<IdentityUserRole<Guid>>().RemoveRange(
+            context.Set<IdentityUserRole<Guid>>().Where(x => x.UserId == ids.AliceUserId));
+        await context.SaveChangesAsync();
+        await Assert.ThrowsAsync<AuthenticationException>(() => service.UpdateStatusAsync(
+            ids.AliceUserId,
+            ids.TargetUserId,
+            new AdminUserStatusRequest(false, ToToken(target.RowVersion)),
+            null,
+            default));
+
+        var adminRole = await context.Set<MotoHubIdentityRole>().SingleAsync(x => x.NormalizedName == "ADMIN");
+        context.Set<IdentityUserRole<Guid>>().Add(new IdentityUserRole<Guid>
+        {
+            UserId = ids.AliceUserId,
+            RoleId = adminRole.Id
+        });
+        actor.IsActive = false;
+        await context.SaveChangesAsync();
+        await Assert.ThrowsAsync<AuthenticationException>(() => service.RevokeSessionsAsync(
+            ids.AliceUserId,
+            ids.TargetUserId,
+            null,
+            default));
+
+        actor.IsActive = true;
+        actor.IsDeleted = true;
+        await context.SaveChangesAsync();
+        await Assert.ThrowsAsync<AuthenticationException>(() => service.RevokeSessionsAsync(
+            ids.AliceUserId,
+            ids.TargetUserId,
+            null,
+            default));
+    }
+
+    [Fact]
+    public async Task Revoke_sessions_is_target_scoped_idempotent_and_allows_self_revocation()
+    {
+        await using var provider = CreateProvider();
+        await using var scope = provider.CreateAsyncScope();
+        var ids = await SeedMutationDataAsync(scope.ServiceProvider);
+        SetActor(scope.ServiceProvider, ids.AliceUserId);
+        var service = GetService(scope);
+        var context = scope.ServiceProvider.GetRequiredService<MotoHubDbContext>();
+
+        var targetResult = await service.RevokeSessionsAsync(ids.AliceUserId, ids.TargetUserId, "127.0.0.1", default);
+        var secondResult = await service.RevokeSessionsAsync(ids.AliceUserId, ids.TargetUserId, null, default);
+        var selfResult = await service.RevokeSessionsAsync(ids.AliceUserId, ids.AliceUserId, null, default);
+
+        Assert.Equal(2, targetResult.RevokedCount);
+        Assert.Equal(0, secondResult.RevokedCount);
+        Assert.Equal(1, selfResult.RevokedCount);
+        Assert.All(
+            await context.RefreshTokens.Where(x => x.UserId == ids.TargetUserId || x.UserId == ids.AliceUserId).ToListAsync(),
+            token => Assert.NotNull(token.RevokedAt));
+        Assert.Contains(
+            await context.RefreshTokens.Where(x => x.UserId == ids.BobUserId).ToListAsync(),
+            token => token.RevokedAt is null);
+        Assert.Equal(3, await context.AuditLogs.CountAsync(x => x.Action == "UserSessionsRevoked"));
+        var auditPayloads = await context.AuditLogs
+            .Where(x => x.Action == "UserSessionsRevoked")
+            .Select(x => x.NewValuesJson)
+            .ToListAsync();
+        Assert.All(auditPayloads, payload =>
+        {
+            Assert.Contains("revokedCount", payload, StringComparison.Ordinal);
+            Assert.DoesNotContain("token", payload, StringComparison.OrdinalIgnoreCase);
+            Assert.DoesNotContain("hash", payload, StringComparison.OrdinalIgnoreCase);
+        });
+
+        await Assert.ThrowsAsync<ConflictException>(() => service.RevokeSessionsAsync(
+            ids.AliceUserId,
+            ids.MissingProfileUserId,
+            null,
+            default));
+    }
+
     private static IAdminUserService GetService(AsyncServiceScope scope)
         => scope.ServiceProvider.GetRequiredService<IAdminUserService>();
 
@@ -192,6 +430,9 @@ public sealed class AdminUserServiceTests
         services.AddIdentityCore<MotoHubIdentityUser>()
             .AddRoles<MotoHubIdentityRole>()
             .AddEntityFrameworkStores<MotoHubDbContext>();
+        services.AddHttpContextAccessor();
+        services.AddScoped<ISessionRevocationService, SessionRevocationService>();
+        services.AddScoped<IAuditService, AuditService>();
         services.AddScoped<IAdminUserService, AdminUserService>();
         return services.BuildServiceProvider(new ServiceProviderOptions { ValidateScopes = true });
     }
@@ -230,8 +471,43 @@ public sealed class AdminUserServiceTests
             DomainUser(bobId, "bob", "bob@example.com", false, rowVersion: [4, 5, 6]),
             DomainUser(deletedId, "deleted", "deleted@example.com", true, isDeleted: true, rowVersion: [9, 9, 9]));
         await context.SaveChangesAsync();
-        return new SeededIds(missingProfileId, aliceId, deletedId);
+        return new SeededIds(missingProfileId, aliceId, deletedId, Guid.Empty, bobId);
     }
+
+    private static async Task<SeededIds> SeedMutationDataAsync(IServiceProvider services)
+    {
+        var ids = await SeedAsync(services);
+        var context = services.GetRequiredService<MotoHubDbContext>();
+        var targetId = Guid.NewGuid();
+        context.Set<MotoHubIdentityUser>().Add(IdentityUser(targetId, "target", "target@example.com", true));
+        context.Users.Add(DomainUser(targetId, "target", "target@example.com", true, rowVersion: [7, 8, 9]));
+        context.RefreshTokens.AddRange(
+            RefreshToken(targetId, "target-active-1"),
+            RefreshToken(targetId, "target-active-2"),
+            RefreshToken(ids.AliceUserId, "alice-active"),
+            RefreshToken(ids.BobUserId, "bob-active"));
+        await context.SaveChangesAsync();
+        return ids with { TargetUserId = targetId };
+    }
+
+    private static RefreshToken RefreshToken(Guid userId, string tokenHash)
+        => new()
+        {
+            UserId = userId,
+            TokenHash = tokenHash,
+            ExpiresAt = DateTimeOffset.UtcNow.AddDays(1)
+        };
+
+    private static void SetActor(IServiceProvider services, Guid actorUserId)
+    {
+        services.GetRequiredService<IHttpContextAccessor>().HttpContext = new DefaultHttpContext
+        {
+            User = new ClaimsPrincipal(new ClaimsIdentity(
+                [new Claim(ClaimTypes.NameIdentifier, actorUserId.ToString())], "test"))
+        };
+    }
+
+    private static string ToToken(byte[] value) => Convert.ToBase64String(value);
 
     private static MotoHubIdentityUser IdentityUser(Guid id, string userName, string email, bool emailConfirmed)
         => new()
@@ -262,5 +538,10 @@ public sealed class AdminUserServiceTests
             RowVersion = rowVersion ?? []
         };
 
-    private sealed record SeededIds(Guid MissingProfileUserId, Guid AliceUserId, Guid DeletedUserId);
+    private sealed record SeededIds(
+        Guid MissingProfileUserId,
+        Guid AliceUserId,
+        Guid DeletedUserId,
+        Guid TargetUserId,
+        Guid BobUserId);
 }

@@ -1,5 +1,9 @@
+using System.Security.Cryptography;
+using System.Text.Json;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Storage;
+using MotoHub.Application;
 using MotoHub.Application.Admin;
 using MotoHub.Application.Errors;
 using MotoHub.Domain;
@@ -10,10 +14,15 @@ namespace MotoHub.Infrastructure.Administration;
 
 public sealed class AdminUserService(
     MotoHubDbContext dbContext,
-    ILookupNormalizer lookupNormalizer) : IAdminUserService
+    ILookupNormalizer lookupNormalizer,
+    ISessionRevocationService sessionRevocationService,
+    IAuditService auditService) : IAdminUserService
 {
     private const int DefaultPageSize = 20;
     private const int MaxPageSize = 50;
+    private const string UserActivatedAction = "UserActivated";
+    private const string UserDeactivatedAction = "UserDeactivated";
+    private const string UserSessionsRevokedAction = "UserSessionsRevoked";
 
     public async Task<AdminPagedResponse<AdminUserListItemDto>> ListAsync(
         AdminUserListQuery query,
@@ -102,6 +111,104 @@ public sealed class AdminUserService(
             roles.GetValueOrDefault(userId) ?? Array.Empty<string>());
     }
 
+    public async Task<AdminUserStatusResponse> UpdateStatusAsync(
+        Guid actorUserId,
+        Guid userId,
+        AdminUserStatusRequest request,
+        string? ipAddress,
+        CancellationToken cancellationToken)
+    {
+        if (request is null)
+            throw new ValidationException("El request de estado es obligatorio.");
+
+        await EnsureOperationalAdminAsync(actorUserId, cancellationToken);
+        var identityUser = await FindIdentityUserAsync(userId, cancellationToken);
+        var profile = await FindMutableProfileAsync(userId, cancellationToken);
+        var expectedRowVersion = DecodeConcurrencyToken(request.ConcurrencyToken);
+
+        if (!CryptographicOperations.FixedTimeEquals(profile.RowVersion, expectedRowVersion))
+            throw new ConflictException("El usuario fue modificado por otro proceso.");
+
+        if (profile.IsActive == request.IsActive)
+        {
+            if (!request.IsActive && actorUserId == userId)
+                throw new ConflictException("Un administrador no puede desactivarse a sí mismo.");
+
+            return new AdminUserStatusResponse(userId, profile.IsActive, ToConcurrencyToken(profile));
+        }
+
+        if (!request.IsActive && actorUserId == userId)
+            throw new ConflictException("Un administrador no puede desactivarse a sí mismo.");
+
+        await using var transaction = await BeginTransactionIfRelationalAsync(cancellationToken);
+        try
+        {
+            dbContext.Entry(profile).Property(x => x.RowVersion).OriginalValue = expectedRowVersion;
+            var previousState = profile.IsActive;
+            profile.IsActive = request.IsActive;
+
+            var revokedCount = request.IsActive
+                ? 0
+                : await sessionRevocationService.RevokeAllAsync(
+                    userId,
+                    "Admin user deactivated",
+                    ipAddress,
+                    cancellationToken);
+
+            if (request.IsActive || revokedCount == 0)
+                await SaveWithConcurrencyHandlingAsync(cancellationToken);
+
+            await auditService.WriteAsync(
+                new AuditEntry(
+                    request.IsActive ? UserActivatedAction : UserDeactivatedAction,
+                    nameof(User),
+                    userId,
+                    OldValuesJson: JsonSerializer.Serialize(new { isActive = previousState }),
+                    NewValuesJson: JsonSerializer.Serialize(new { isActive = request.IsActive })),
+                cancellationToken);
+
+            if (transaction is not null)
+                await transaction.CommitAsync(cancellationToken);
+
+            return new AdminUserStatusResponse(userId, profile.IsActive, ToConcurrencyToken(profile));
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            throw new ConflictException("El usuario fue modificado por otro proceso.");
+        }
+    }
+
+    public async Task<AdminSessionRevocationResponse> RevokeSessionsAsync(
+        Guid actorUserId,
+        Guid userId,
+        string? ipAddress,
+        CancellationToken cancellationToken)
+    {
+        await EnsureOperationalAdminAsync(actorUserId, cancellationToken);
+        await FindIdentityUserAsync(userId, cancellationToken);
+        await FindMutableProfileAsync(userId, cancellationToken);
+
+        await using var transaction = await BeginTransactionIfRelationalAsync(cancellationToken);
+        var revokedCount = await sessionRevocationService.RevokeAllAsync(
+            userId,
+            "Admin session revocation",
+            ipAddress,
+            cancellationToken);
+
+        await auditService.WriteAsync(
+            new AuditEntry(
+                UserSessionsRevokedAction,
+                nameof(User),
+                userId,
+                NewValuesJson: JsonSerializer.Serialize(new { revokedCount })),
+            cancellationToken);
+
+        if (transaction is not null)
+            await transaction.CommitAsync(cancellationToken);
+
+        return new AdminSessionRevocationResponse(userId, revokedCount);
+    }
+
     private async Task<Dictionary<Guid, string[]>> LoadRolesAsync(
         IEnumerable<Guid> userIds,
         CancellationToken cancellationToken)
@@ -123,6 +230,67 @@ public sealed class AdminUserService(
             .GroupBy(x => x.UserId)
             .ToDictionary(x => x.Key, x => x.Select(item => item.RoleName!).ToArray());
     }
+
+    private async Task EnsureOperationalAdminAsync(Guid actorUserId, CancellationToken cancellationToken)
+    {
+        var identityActor = await dbContext.Set<MotoHubIdentityUser>()
+            .AsNoTracking()
+            .SingleOrDefaultAsync(x => x.Id == actorUserId, cancellationToken);
+        if (identityActor is null)
+            throw new AuthenticationException("El administrador autenticado ya no está disponible.", 403);
+
+        var adminRole = lookupNormalizer.NormalizeName(AdminSecurity.AdminRole);
+        var hasAdminRole = await (
+            from userRole in dbContext.Set<IdentityUserRole<Guid>>().AsNoTracking()
+            join role in dbContext.Set<MotoHubIdentityRole>().AsNoTracking()
+                on userRole.RoleId equals role.Id
+            where userRole.UserId == actorUserId && role.NormalizedName == adminRole
+            select userRole).AnyAsync(cancellationToken);
+        if (!hasAdminRole)
+            throw new AuthenticationException("El administrador autenticado ya no está autorizado.", 403);
+
+        var profile = await dbContext.Users
+            .IgnoreQueryFilters()
+            .AsNoTracking()
+            .SingleOrDefaultAsync(x => x.Id == actorUserId, cancellationToken);
+        if (profile is not { IsActive: true, IsDeleted: false })
+            throw new AuthenticationException("El administrador autenticado ya no está operativo.", 403);
+    }
+
+    private async Task<MotoHubIdentityUser> FindIdentityUserAsync(Guid userId, CancellationToken cancellationToken)
+        => await dbContext.Set<MotoHubIdentityUser>()
+            .AsNoTracking()
+            .SingleOrDefaultAsync(x => x.Id == userId, cancellationToken)
+            ?? throw new ResourceNotFoundException("El usuario no existe.");
+
+    private async Task<User> FindMutableProfileAsync(Guid userId, CancellationToken cancellationToken)
+    {
+        var profile = await dbContext.Users
+            .IgnoreQueryFilters()
+            .SingleOrDefaultAsync(x => x.Id == userId, cancellationToken);
+        if (profile is null)
+            throw new ConflictException("El usuario no tiene un perfil administrativo consistente.");
+        if (profile.IsDeleted)
+            throw new ConflictException("El usuario está eliminado.");
+        return profile;
+    }
+
+    private async Task SaveWithConcurrencyHandlingAsync(CancellationToken cancellationToken)
+    {
+        try
+        {
+            await dbContext.SaveChangesAsync(cancellationToken);
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            throw new ConflictException("El usuario fue modificado por otro proceso.");
+        }
+    }
+
+    private async Task<IDbContextTransaction?> BeginTransactionIfRelationalAsync(CancellationToken cancellationToken)
+        => dbContext.Database.IsRelational()
+            ? await dbContext.Database.BeginTransactionAsync(cancellationToken)
+            : null;
 
     private static void ValidateQuery(AdminUserListQuery query)
     {
@@ -162,7 +330,7 @@ public sealed class AdminUserService(
             profile?.LastLoginAt,
             profile?.CreatedAt,
             profile?.UpdatedAt,
-            ToConcurrencyToken(profile));
+            ToNullableConcurrencyToken(profile));
 
     private static AdminUserDetailDto ToDetail(
         MotoHubIdentityUser identityUser,
@@ -186,8 +354,26 @@ public sealed class AdminUserService(
             profile?.CreatedAt,
             profile?.UpdatedAt,
             identityUser.LockoutEnd,
-            ToConcurrencyToken(profile));
+            ToNullableConcurrencyToken(profile));
 
-    private static string? ToConcurrencyToken(User? profile)
-        => profile is null ? null : Convert.ToBase64String(profile.RowVersion);
+    private static string ToConcurrencyToken(User profile)
+        => Convert.ToBase64String(profile.RowVersion);
+
+    private static string? ToNullableConcurrencyToken(User? profile)
+        => profile is null ? null : ToConcurrencyToken(profile);
+
+    private static byte[] DecodeConcurrencyToken(string? token)
+    {
+        if (string.IsNullOrWhiteSpace(token))
+            throw new ValidationException("ConcurrencyToken es obligatorio.");
+
+        try
+        {
+            return Convert.FromBase64String(token);
+        }
+        catch (FormatException)
+        {
+            throw new ValidationException("ConcurrencyToken debe ser Base64 válido.");
+        }
+    }
 }

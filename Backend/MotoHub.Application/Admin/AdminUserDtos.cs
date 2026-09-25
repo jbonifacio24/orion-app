@@ -16,6 +16,19 @@ public sealed record AdminUserListQuery(
     int Page = 1,
     int PageSize = 20);
 
+public sealed record AdminUserStatusRequest(
+    bool IsActive,
+    string? ConcurrencyToken);
+
+public sealed record AdminUserStatusResponse(
+    Guid UserId,
+    bool IsActive,
+    string ConcurrencyToken);
+
+public sealed record AdminSessionRevocationResponse(
+    Guid UserId,
+    int RevokedCount);
+
 public sealed record AdminUserListItemDto(
     Guid Id,
     string UserName,
@@ -54,4 +67,15 @@ public interface IAdminUserService
 {
     Task<AdminPagedResponse<AdminUserListItemDto>> ListAsync(AdminUserListQuery query, CancellationToken cancellationToken);
     Task<AdminUserDetailDto> GetAsync(Guid userId, CancellationToken cancellationToken);
+    Task<AdminUserStatusResponse> UpdateStatusAsync(
+        Guid actorUserId,
+        Guid userId,
+        AdminUserStatusRequest request,
+        string? ipAddress,
+        CancellationToken cancellationToken);
+    Task<AdminSessionRevocationResponse> RevokeSessionsAsync(
+        Guid actorUserId,
+        Guid userId,
+        string? ipAddress,
+        CancellationToken cancellationToken);
 }
