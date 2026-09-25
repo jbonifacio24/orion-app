@@ -25,3 +25,8 @@ public interface IAuditService
 {
     Task WriteAsync(AuditEntry entry, CancellationToken cancellationToken);
 }
+
+public interface IAdminOperationalAccessService
+{
+    Task EnsureOperationalAdminAsync(Guid actorUserId, CancellationToken cancellationToken);
+}

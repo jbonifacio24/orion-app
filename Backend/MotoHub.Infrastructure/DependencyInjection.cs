@@ -67,7 +67,9 @@ public static class DependencyInjection
         services.AddScoped<IAuthenticationService, AuthenticationService>();
         services.AddScoped<ISessionRevocationService, SessionRevocationService>();
         services.AddScoped<IAuditService, AuditService>();
+        services.AddScoped<IAdminOperationalAccessService, AdminOperationalAccessService>();
         services.AddScoped<IAdminUserService, AdminUserService>();
+        services.AddScoped<IAdminAuditQueryService, AdminAuditQueryService>();
         services.AddScoped<DevelopmentUserSeeder>();
         services.AddScoped<AdminBootstrapper>();
         services.AddHttpContextAccessor();

@@ -18,6 +18,7 @@ public sealed class AdminUserService(
     ILookupNormalizer lookupNormalizer,
     UserManager<MotoHubIdentityUser> userManager,
     RoleManager<MotoHubIdentityRole> roleManager,
+    IAdminOperationalAccessService adminOperationalAccessService,
     ISessionRevocationService sessionRevocationService,
     IAuditService auditService) : IAdminUserService
 {
@@ -124,7 +125,7 @@ public sealed class AdminUserService(
         if (request is null)
             throw new ValidationException("El request de estado es obligatorio.");
 
-        await EnsureOperationalAdminAsync(actorUserId, cancellationToken);
+        await adminOperationalAccessService.EnsureOperationalAdminAsync(actorUserId, cancellationToken);
         var identityUser = await FindIdentityUserAsync(userId, cancellationToken);
         var profile = await FindMutableProfileAsync(userId, cancellationToken);
         var expectedRowVersion = DecodeConcurrencyToken(request.ConcurrencyToken);
@@ -196,7 +197,7 @@ public sealed class AdminUserService(
         string? ipAddress,
         CancellationToken cancellationToken)
     {
-        await EnsureOperationalAdminAsync(actorUserId, cancellationToken);
+        await adminOperationalAccessService.EnsureOperationalAdminAsync(actorUserId, cancellationToken);
         await FindIdentityUserAsync(userId, cancellationToken);
         await FindMutableProfileAsync(userId, cancellationToken);
 
@@ -230,7 +231,7 @@ public sealed class AdminUserService(
     {
         if (request is null)
             throw new ValidationException("El request de roles es obligatorio.");
-        await EnsureOperationalAdminAsync(actorUserId, cancellationToken);
+        await adminOperationalAccessService.EnsureOperationalAdminAsync(actorUserId, cancellationToken);
         var desiredRoleNames = NormalizeRequestedRoles(request.Roles);
         var desiredRoles = await ResolveRolesAsync(desiredRoleNames, cancellationToken);
         var identityUser = await FindIdentityUserAsync(userId, cancellationToken);
@@ -378,32 +379,6 @@ public sealed class AdminUserService(
         return roles
             .OrderBy(role => lookupNormalizer.NormalizeName(role.Name), StringComparer.Ordinal)
             .ToArray();
-    }
-
-    private async Task EnsureOperationalAdminAsync(Guid actorUserId, CancellationToken cancellationToken)
-    {
-        var identityActor = await dbContext.Set<MotoHubIdentityUser>()
-            .AsNoTracking()
-            .SingleOrDefaultAsync(x => x.Id == actorUserId, cancellationToken);
-        if (identityActor is null)
-            throw new AuthenticationException("El administrador autenticado ya no está disponible.", 403);
-
-        var adminRole = lookupNormalizer.NormalizeName(AdminSecurity.AdminRole);
-        var hasAdminRole = await (
-            from userRole in dbContext.Set<IdentityUserRole<Guid>>().AsNoTracking()
-            join role in dbContext.Set<MotoHubIdentityRole>().AsNoTracking()
-                on userRole.RoleId equals role.Id
-            where userRole.UserId == actorUserId && role.NormalizedName == adminRole
-            select userRole).AnyAsync(cancellationToken);
-        if (!hasAdminRole)
-            throw new AuthenticationException("El administrador autenticado ya no está autorizado.", 403);
-
-        var profile = await dbContext.Users
-            .IgnoreQueryFilters()
-            .AsNoTracking()
-            .SingleOrDefaultAsync(x => x.Id == actorUserId, cancellationToken);
-        if (profile is not { IsActive: true, IsDeleted: false })
-            throw new AuthenticationException("El administrador autenticado ya no está operativo.", 403);
     }
 
     private async Task<bool> IsOperationalAdminAsync(Guid userId, CancellationToken cancellationToken)

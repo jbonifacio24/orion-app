@@ -191,6 +191,99 @@ public sealed class AdminUsersEndpointTests : IClassFixture<ApiFactory>
         Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
     }
 
+    [Fact]
+    public async Task Anonymous_audit_list_request_returns_401()
+    {
+        var response = await factory.CreateClient().GetAsync("/api/admin/audit-logs");
+
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task Non_admin_audit_list_request_returns_403()
+    {
+        var client = factory.CreateClient();
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", CreateToken("User"));
+
+        var response = await client.GetAsync("/api/admin/audit-logs");
+
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task Admin_can_list_audit_logs_without_sensitive_list_fields()
+    {
+        var seeded = await SeedAdminUsersAsync();
+        using (var scope = factory.Services.CreateScope())
+        {
+            var context = scope.ServiceProvider.GetRequiredService<MotoHubDbContext>();
+            context.AuditLogs.Add(new AuditLog
+            {
+                ActorUserId = seeded.ActorId,
+                Action = "UserDeactivated",
+                EntityType = "User",
+                EntityId = seeded.TargetId,
+                OldValuesJson = "{\"password\":\"hidden\"}",
+                NewValuesJson = "{\"token\":\"hidden\"}",
+                IpAddress = "127.0.0.1",
+                UserAgent = "test-agent",
+                CorrelationId = "api-correlation"
+            });
+            await context.SaveChangesAsync();
+        }
+
+        var client = factory.CreateClient();
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(
+            "Bearer",
+            CreateToken("Admin", seeded.ActorId));
+
+        var response = await client.GetAsync("/api/admin/audit-logs?action=UserDeactivated");
+        var body = await response.Content.ReadAsStringAsync();
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Contains("UserDeactivated", body, StringComparison.Ordinal);
+        Assert.DoesNotContain("oldValuesJson", body, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("newValuesJson", body, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("ipAddress", body, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("userAgent", body, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task Admin_audit_list_invalid_query_returns_400()
+    {
+        var seeded = await SeedAdminUsersAsync();
+        var client = factory.CreateClient();
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(
+            "Bearer",
+            CreateToken("Admin", seeded.ActorId));
+
+        var response = await client.GetAsync("/api/admin/audit-logs?page=0");
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task Admin_audit_list_revalidates_current_admin_role()
+    {
+        var seeded = await SeedAdminUsersAsync();
+        using (var scope = factory.Services.CreateScope())
+        {
+            var context = scope.ServiceProvider.GetRequiredService<MotoHubDbContext>();
+            context.Set<IdentityUserRole<Guid>>().RemoveRange(
+                context.Set<IdentityUserRole<Guid>>().Where(x => x.UserId == seeded.ActorId));
+            await context.SaveChangesAsync();
+        }
+
+        var client = factory.CreateClient();
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(
+            "Bearer",
+            CreateToken("Admin", seeded.ActorId));
+
+        var response = await client.GetAsync("/api/admin/audit-logs");
+
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+    }
+
     private async Task<ApiAdminSeed> SeedAdminUsersAsync()
     {
         var actorId = Guid.NewGuid();

@@ -38,6 +38,27 @@ public sealed record AdminUserRolesResponse(
     IReadOnlyCollection<string> Roles,
     string ConcurrencyToken);
 
+public sealed record AdminAuditLogQuery(
+    int Page = 1,
+    int PageSize = 20,
+    Guid? ActorUserId = null,
+    string? Action = null,
+    string? EntityType = null,
+    Guid? EntityId = null,
+    DateTimeOffset? From = null,
+    DateTimeOffset? To = null,
+    string? CorrelationId = null);
+
+public sealed record AdminAuditLogListItemDto(
+    Guid Id,
+    Guid? ActorUserId,
+    string? ActorDisplay,
+    string Action,
+    string EntityType,
+    Guid EntityId,
+    string? CorrelationId,
+    DateTimeOffset CreatedAt);
+
 public sealed record AdminUserListItemDto(
     Guid Id,
     string UserName,
@@ -92,5 +113,13 @@ public interface IAdminUserService
         Guid userId,
         AdminUserRolesRequest request,
         string? ipAddress,
+        CancellationToken cancellationToken);
+}
+
+public interface IAdminAuditQueryService
+{
+    Task<AdminPagedResponse<AdminAuditLogListItemDto>> ListAsync(
+        Guid actorUserId,
+        AdminAuditLogQuery query,
         CancellationToken cancellationToken);
 }

@@ -574,6 +574,7 @@ public sealed class AdminUserServiceTests
         services.AddHttpContextAccessor();
         services.AddScoped<ISessionRevocationService, SessionRevocationService>();
         services.AddScoped<IAuditService, AuditService>();
+        services.AddScoped<IAdminOperationalAccessService, AdminOperationalAccessService>();
         services.AddScoped<IAdminUserService, AdminUserService>();
         return services.BuildServiceProvider(new ServiceProviderOptions { ValidateScopes = true });
     }
