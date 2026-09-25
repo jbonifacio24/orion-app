@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using MotoHub.Domain;
 using MotoHub.Infrastructure.Authentication;
+using NewsEntity = MotoHub.Domain.News;
 
 namespace MotoHub.Infrastructure.Persistence;
 
@@ -38,7 +39,7 @@ public sealed class MotoHubDbContext(DbContextOptions<MotoHubDbContext> options)
     public DbSet<PostMedia> PostMedia => Set<PostMedia>();
     public DbSet<PostComment> PostComments => Set<PostComment>();
     public DbSet<PostLike> PostLikes => Set<PostLike>();
-    public DbSet<News> News => Set<News>();
+    public DbSet<NewsEntity> News => Set<NewsEntity>();
     public DbSet<NewsCategory> NewsCategories => Set<NewsCategory>();
     public DbSet<NewsCategoryAssignment> NewsCategoryAssignments => Set<NewsCategoryAssignment>();
     public DbSet<Referral> Referrals => Set<Referral>();
