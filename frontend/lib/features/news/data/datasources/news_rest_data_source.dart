@@ -24,4 +24,9 @@ class NewsRestDataSource {
       return NewsCategoryModel.fromJson(item);
     }).toList(growable: false);
   }
+
+  Future<NewsDetailModel> getNewsDetail(String newsId) async {
+    final response = await _dio.get<Map<String, dynamic>>('/api/news/${Uri.encodeComponent(newsId)}');
+    return NewsDetailModel.fromJson(response.data!);
+  }
 }

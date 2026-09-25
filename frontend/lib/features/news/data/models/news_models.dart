@@ -1,6 +1,7 @@
 import '../../../../core/error/app_failure.dart';
 import '../../domain/entities/news_article.dart';
 import '../../domain/entities/news_category.dart';
+import '../../domain/entities/news_detail.dart';
 import '../../domain/entities/paged_news.dart';
 
 String _requiredString(Map<String, dynamic> json, String key) {
@@ -60,6 +61,30 @@ class NewsArticleModel extends NewsArticle {
         slug: _requiredString(json, 'slug'),
         title: _requiredString(json, 'title'),
         summary: _optionalString(json, 'summary'),
+        featuredImageUrl: _optionalString(json, 'featuredImageUrl'),
+        categories: _categories(json),
+        publishedAt: _requiredDate(json, 'publishedAt'),
+      );
+}
+
+class NewsDetailModel extends NewsDetail {
+  const NewsDetailModel({
+    required super.id,
+    required super.slug,
+    required super.title,
+    required super.summary,
+    required super.content,
+    required super.featuredImageUrl,
+    required super.categories,
+    required super.publishedAt,
+  });
+
+  factory NewsDetailModel.fromJson(Map<String, dynamic> json) => NewsDetailModel(
+        id: _requiredString(json, 'id'),
+        slug: _requiredString(json, 'slug'),
+        title: _requiredString(json, 'title'),
+        summary: _optionalString(json, 'summary'),
+        content: _requiredString(json, 'content'),
         featuredImageUrl: _optionalString(json, 'featuredImageUrl'),
         categories: _categories(json),
         publishedAt: _requiredDate(json, 'publishedAt'),

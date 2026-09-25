@@ -51,6 +51,8 @@ import '../../features/community/presentation/pages/community_feed_page.dart';
 import '../../features/community/presentation/pages/community_post_detail_page.dart';
 import '../../features/community/presentation/pages/create_community_post_page.dart';
 import '../../features/news/presentation/cubit/news_feed_cubit.dart';
+import '../../features/news/presentation/cubit/news_detail_cubit.dart';
+import '../../features/news/presentation/pages/news_detail_page.dart';
 import '../../features/news/presentation/pages/news_feed_page.dart';
 import '../di/injection.dart';
 import 'route_names.dart';
@@ -159,6 +161,17 @@ GoRouter createAppRouter(AuthCubit authCubit) {
     GoRoute(name: RouteNames.workshopDetail, path: '/workshops/:id', builder: (context, state) => BlocProvider(create: (_) => getIt<WorkshopDetailCubit>(), child: WorkshopDetailPage(id: state.pathParameters['id']!))),
     GoRoute(name: RouteNames.community, path: RouteNames.communityPath, builder: (context, state) => BlocProvider(create: (_) => getIt<CommunityFeedCubit>(), child: const CommunityFeedPage())),
     GoRoute(name: RouteNames.news, path: RouteNames.newsPath, builder: (context, state) => BlocProvider(create: (_) => getIt<NewsFeedCubit>(), child: const NewsFeedPage())),
+    GoRoute(
+      name: RouteNames.newsDetail,
+      path: RouteNames.newsDetailPath,
+      builder: (context, state) {
+        final newsId = state.pathParameters['newsId']!;
+        return BlocProvider(
+          create: (_) => getIt<NewsDetailCubit>()..load(newsId),
+          child: const NewsDetailPage(),
+        );
+      },
+    ),
     GoRoute(name: RouteNames.communityCreate, path: RouteNames.communityCreatePath, builder: (context, state) => BlocProvider(create: (_) => getIt<CommunityFeedCubit>(), child: const CreateCommunityPostPage())),
     GoRoute(name: RouteNames.communityPostDetail, path: RouteNames.communityPostDetailPath, builder: (context, state) => BlocProvider(create: (_) => getIt<PostDetailCubit>(), child: CommunityPostDetailPage(postId: state.pathParameters['postId']!))),
     ...theftReportRoutes(),

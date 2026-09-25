@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../../../core/localization/app_localizations.dart';
+import '../../../../core/router/route_names.dart';
 import '../../../../core/widgets/app_loading.dart';
 import '../cubit/news_feed_cubit.dart';
 import '../cubit/news_feed_state.dart';
@@ -98,7 +100,11 @@ class _NewsFeedPageState extends State<NewsFeedPage> {
             }
             return const Padding(padding: EdgeInsets.all(12), child: AppLoading(compact: true));
           }
-          return NewsCard(article: state.items[index]);
+          final article = state.items[index];
+          return NewsCard(
+            article: article,
+            onTap: () => context.pushNamed(RouteNames.newsDetail, pathParameters: {'newsId': article.id}),
+          );
         },
       ),
     );

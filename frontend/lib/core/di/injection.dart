@@ -97,7 +97,9 @@ import '../../features/news/data/datasources/news_rest_data_source.dart';
 import '../../features/news/data/repositories/news_repository_impl.dart';
 import '../../features/news/domain/repositories/news_repository.dart';
 import '../../features/news/domain/usecases/get_news_categories.dart';
+import '../../features/news/domain/usecases/get_news_detail.dart';
 import '../../features/news/domain/usecases/get_news_feed.dart';
+import '../../features/news/presentation/cubit/news_detail_cubit.dart';
 import '../../features/news/presentation/cubit/news_feed_cubit.dart';
 
 final GetIt getIt = GetIt.instance;
@@ -221,5 +223,7 @@ Future<void> configureDependencies() async {
   if (!getIt.isRegistered<NewsRepository>()) getIt.registerLazySingleton<NewsRepository>(() => NewsRepositoryImpl(getIt<NewsRestDataSource>()));
   if (!getIt.isRegistered<GetNewsFeed>()) getIt.registerLazySingleton(() => GetNewsFeed(getIt<NewsRepository>()));
   if (!getIt.isRegistered<GetNewsCategories>()) getIt.registerLazySingleton(() => GetNewsCategories(getIt<NewsRepository>()));
+  if (!getIt.isRegistered<GetNewsDetail>()) getIt.registerLazySingleton(() => GetNewsDetail(getIt<NewsRepository>()));
   if (!getIt.isRegistered<NewsFeedCubit>()) getIt.registerFactory(() => NewsFeedCubit(getIt<GetNewsFeed>(), getIt<GetNewsCategories>(), getIt<SessionEvents>()));
+  if (!getIt.isRegistered<NewsDetailCubit>()) getIt.registerFactory(() => NewsDetailCubit(getIt<GetNewsDetail>(), getIt<SessionEvents>()));
 }

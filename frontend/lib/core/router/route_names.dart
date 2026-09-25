@@ -29,8 +29,10 @@ abstract final class RouteNames {
   static const communityCreate = 'community-create';
   static const communityPostDetail = 'community-post-detail';
   static const news = 'news';
+  static const newsDetail = 'news-detail';
   static const communityPath = '/community';
   static const communityCreatePath = '/community/create';
   static const communityPostDetailPath = '/community/posts/:postId';
   static const newsPath = '/news';
+  static const newsDetailPath = '/news/:newsId';
 }

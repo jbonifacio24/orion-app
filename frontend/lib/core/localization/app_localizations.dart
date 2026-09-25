@@ -126,4 +126,9 @@ abstract final class AppLocalizations {
   static String newsRetry(Locale locale) => locale.languageCode == 'en' ? 'Retry' : 'Reintentar';
   static String newsLoadMore(Locale locale) => locale.languageCode == 'en' ? 'Load more' : 'Cargar más';
   static String newsImageUnavailable(Locale locale) => locale.languageCode == 'en' ? 'Image unavailable' : 'Imagen no disponible';
+  static String newsDetailTitle(Locale locale) => locale.languageCode == 'en' ? 'News detail' : 'Detalle de noticia';
+  static String newsDetailLoadFailed(Locale locale) => locale.languageCode == 'en' ? 'News could not be loaded.' : 'No se pudo cargar la noticia.';
+  static String newsNotFound(Locale locale) => locale.languageCode == 'en' ? 'News could not be found.' : 'No se pudo encontrar la noticia.';
+  static String newsSummary(Locale locale) => locale.languageCode == 'en' ? 'Summary' : 'Resumen';
+  static String newsContent(Locale locale) => locale.languageCode == 'en' ? 'Content' : 'Contenido';
 }

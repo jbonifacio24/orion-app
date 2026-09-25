@@ -5,6 +5,7 @@ import 'package:motohub/core/auth/session_events.dart';
 import 'package:motohub/core/error/app_failure.dart';
 import 'package:motohub/features/news/domain/entities/news_article.dart';
 import 'package:motohub/features/news/domain/entities/news_category.dart';
+import 'package:motohub/features/news/domain/entities/news_detail.dart';
 import 'package:motohub/features/news/domain/entities/paged_news.dart';
 import 'package:motohub/features/news/domain/repositories/news_repository.dart';
 import 'package:motohub/features/news/domain/usecases/get_news_categories.dart';
@@ -190,6 +191,9 @@ class _FakeNewsRepository implements NewsRepository {
   Future<List<NewsCategory>> getNewsCategories() => categoriesFailure
       ? Future.error(const NetworkFailure('No se pudieron cargar las categorías.'))
       : Future.value(const [NewsCategory(id: 'cat-1', name: 'Rutas', slug: 'rutas')]);
+
+  @override
+  Future<NewsDetail> getNewsDetail(String newsId) => Future.error(UnsupportedError('Not used in feed tests'));
 
   @override
   Future<PagedNews> getNewsFeed({required int page, required int pageSize, String? categoryId}) {
