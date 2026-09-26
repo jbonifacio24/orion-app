@@ -71,7 +71,7 @@ builder.Services.AddRateLimiter(options =>
     options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
     options.AddFixedWindowLimiter("auth", limiter =>
     {
-        limiter.PermitLimit = 10;
+        limiter.PermitLimit = builder.Configuration.GetValue("RateLimiting:AuthPermitLimit", 10);
         limiter.Window = TimeSpan.FromMinutes(1);
         limiter.QueueLimit = 0;
     });
@@ -141,6 +141,7 @@ if (!app.Environment.IsDevelopment())
 app.UseCors("Frontend");
 app.UseRateLimiter();
 app.UseAuthentication();
+app.UseMiddleware<OperationalUserMiddleware>();
 app.UseAuthorization();
 app.MapControllers();
 app.MapHub<ChatHub>("/hubs/chat");

@@ -67,6 +67,7 @@ public static class DependencyInjection
         services.Configure<ProductImageStorageOptions>(configuration.GetSection("ProductImages"));
         services.AddScoped<JwtTokenService>();
         services.AddScoped<IAuthenticationService, AuthenticationService>();
+        services.AddScoped<IOperationalUserAccessService, OperationalUserAccessService>();
         services.AddScoped<ISessionRevocationService, SessionRevocationService>();
         services.AddScoped<IAuditService, AuditService>();
         services.AddScoped<AuditPayloadSanitizer>();

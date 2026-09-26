@@ -38,3 +38,8 @@ public interface IAuthenticationService
 	Task ConfirmEmailAsync(ConfirmEmailRequest request, CancellationToken cancellationToken);
 	Task<AuthUser> GetCurrentUserAsync(Guid userId, CancellationToken cancellationToken);
 }
+
+public interface IOperationalUserAccessService
+{
+	Task<bool> IsOperationalAsync(Guid userId, CancellationToken cancellationToken);
+}

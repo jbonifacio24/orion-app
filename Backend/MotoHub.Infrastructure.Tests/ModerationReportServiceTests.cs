@@ -184,6 +184,49 @@ public sealed class ModerationReportServiceTests
         Assert.Equal(2, await context.UserReports.CountAsync());
     }
 
+    [Fact]
+    public async Task Reviewing_blocks_but_rejected_different_reporter_and_different_target_do_not_block()
+    {
+        await using var context = CreateContext();
+        var reporter = AddUser(context, "reporter");
+        var otherReporter = AddUser(context, "other-reporter");
+        var target = AddUser(context, "target");
+        var otherTarget = AddUser(context, "other-target");
+        await context.SaveChangesAsync();
+        var service = Service(context);
+
+        await service.CreateAsync(
+            reporter.Id,
+            new(ModerationReportTargetType.User, target.Id, "first", null),
+            default);
+        var activeReport = await context.UserReports.SingleAsync();
+        activeReport.Status = ModerationReportStatus.Reviewing;
+        await context.SaveChangesAsync();
+
+        await Assert.ThrowsAsync<ConflictException>(() => service.CreateAsync(
+            reporter.Id,
+            new(ModerationReportTargetType.User, target.Id, "reviewing", null),
+            default));
+
+        activeReport.Status = ModerationReportStatus.Rejected;
+        await context.SaveChangesAsync();
+
+        await service.CreateAsync(
+            reporter.Id,
+            new(ModerationReportTargetType.User, target.Id, "rejected", null),
+            default);
+        await service.CreateAsync(
+            otherReporter.Id,
+            new(ModerationReportTargetType.User, target.Id, "other reporter", null),
+            default);
+        await service.CreateAsync(
+            reporter.Id,
+            new(ModerationReportTargetType.User, otherTarget.Id, "other target", null),
+            default);
+
+        Assert.Equal(4, await context.UserReports.CountAsync());
+    }
+
     private static ModerationReportService Service(MotoHubDbContext context) => new(context);
 
     private static User AddUser(MotoHubDbContext context, string userName)

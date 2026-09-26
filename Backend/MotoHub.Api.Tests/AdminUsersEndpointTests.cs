@@ -33,8 +33,9 @@ public sealed class AdminUsersEndpointTests : IClassFixture<ApiFactory>
     [Fact]
     public async Task Non_admin_list_request_returns_403()
     {
+        var userId = await SeedNonAdminAsync();
         var client = factory.CreateClient();
-        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", CreateToken("User"));
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", CreateToken("User", userId));
 
         var response = await client.GetAsync("/api/admin/users");
 
@@ -44,8 +45,9 @@ public sealed class AdminUsersEndpointTests : IClassFixture<ApiFactory>
     [Fact]
     public async Task Admin_list_request_returns_paged_response()
     {
+        var seeded = await SeedAdminUsersAsync();
         var client = factory.CreateClient();
-        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", CreateToken("Admin"));
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", CreateToken("Admin", seeded.ActorId));
 
         var response = await client.GetAsync("/api/admin/users?page=1&pageSize=20");
         var body = await response.Content.ReadAsStringAsync();
@@ -58,8 +60,9 @@ public sealed class AdminUsersEndpointTests : IClassFixture<ApiFactory>
     [Fact]
     public async Task Admin_detail_request_for_missing_user_returns_404()
     {
+        var seeded = await SeedAdminUsersAsync();
         var client = factory.CreateClient();
-        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", CreateToken("Admin"));
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", CreateToken("Admin", seeded.ActorId));
 
         var response = await client.GetAsync($"/api/admin/users/{Guid.NewGuid()}");
 
@@ -69,6 +72,7 @@ public sealed class AdminUsersEndpointTests : IClassFixture<ApiFactory>
     [Fact]
     public async Task Admin_detail_request_for_existing_user_returns_200()
     {
+        var seeded = await SeedAdminUsersAsync();
         var userId = Guid.NewGuid();
         using (var scope = factory.Services.CreateScope())
         {
@@ -85,7 +89,7 @@ public sealed class AdminUsersEndpointTests : IClassFixture<ApiFactory>
         }
 
         var client = factory.CreateClient();
-        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", CreateToken("Admin"));
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", CreateToken("Admin", seeded.ActorId));
         var response = await client.GetAsync($"/api/admin/users/{userId}");
         var body = await response.Content.ReadAsStringAsync();
 
@@ -107,8 +111,9 @@ public sealed class AdminUsersEndpointTests : IClassFixture<ApiFactory>
     [Fact]
     public async Task Non_admin_session_revocation_request_returns_403()
     {
+        var userId = await SeedNonAdminAsync();
         var client = factory.CreateClient();
-        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", CreateToken("User"));
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", CreateToken("User", userId));
 
         var response = await client.PostAsync($"/api/admin/users/{Guid.NewGuid()}/revoke-sessions", null);
 
@@ -149,8 +154,9 @@ public sealed class AdminUsersEndpointTests : IClassFixture<ApiFactory>
     [Fact]
     public async Task Non_admin_roles_request_returns_403()
     {
+        var userId = await SeedNonAdminAsync();
         var client = factory.CreateClient();
-        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", CreateToken("User"));
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", CreateToken("User", userId));
 
         var response = await client.PutAsJsonAsync(
             $"/api/admin/users/{Guid.NewGuid()}/roles",
@@ -203,8 +209,9 @@ public sealed class AdminUsersEndpointTests : IClassFixture<ApiFactory>
     [Fact]
     public async Task Non_admin_audit_list_request_returns_403()
     {
+        var userId = await SeedNonAdminAsync();
         var client = factory.CreateClient();
-        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", CreateToken("User"));
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", CreateToken("User", userId));
 
         var response = await client.GetAsync("/api/admin/audit-logs");
 
@@ -348,8 +355,9 @@ public sealed class AdminUsersEndpointTests : IClassFixture<ApiFactory>
     [Fact]
     public async Task Non_admin_audit_detail_request_returns_403()
     {
+        var userId = await SeedNonAdminAsync();
         var client = factory.CreateClient();
-        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", CreateToken("User"));
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", CreateToken("User", userId));
 
         var response = await client.GetAsync($"/api/admin/audit-logs/{Guid.NewGuid()}");
 
@@ -399,6 +407,24 @@ public sealed class AdminUsersEndpointTests : IClassFixture<ApiFactory>
         await context.SaveChangesAsync();
         var target = await context.Users.IgnoreQueryFilters().SingleAsync(user => user.Id == targetId);
         return new ApiAdminSeed(actorId, targetId, Convert.ToBase64String(target.RowVersion), roleName);
+    }
+
+    private async Task<Guid> SeedNonAdminAsync()
+    {
+        var userId = Guid.NewGuid();
+        using var scope = factory.Services.CreateScope();
+        var context = scope.ServiceProvider.GetRequiredService<MotoHubDbContext>();
+        context.Set<MotoHubIdentityUser>().Add(IdentityUser(
+            userId,
+            $"api-user-{userId:N}",
+            $"api-user-{userId:N}@example.com"));
+        context.Users.Add(DomainUser(
+            userId,
+            $"api-user-{userId:N}",
+            $"api-user-{userId:N}@example.com",
+            [7, 8, 9]));
+        await context.SaveChangesAsync();
+        return userId;
     }
 
     private static MotoHubIdentityUser IdentityUser(Guid id, string userName, string email)
