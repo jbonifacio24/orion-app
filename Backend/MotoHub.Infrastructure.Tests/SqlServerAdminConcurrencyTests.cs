@@ -27,6 +27,72 @@ namespace MotoHub.Infrastructure.Tests;
 public sealed class SqlServerAdminConcurrencyTests(SqlServerTestFixture fixture)
 {
     [Fact]
+    public async Task ReplaceRolesAsync_WhenTwoOperationalAdminsRemoveEachOtherConcurrently_CharacterizesLastAdminProtection()
+    {
+        var setup = await CreateRoleRemovalInitialStateAsync();
+        await AssertRoleRemovalPreconditionAsync(setup);
+        using var synchronization = new OperationalAdminReadBarrier(
+            setup.AdminRoleName,
+            [setup.AdminAId, setup.AdminBId],
+            TimeSpan.FromSeconds(30));
+        await using var actorA = CreateProvider(synchronization);
+        await using var actorB = CreateProvider(synchronization);
+
+        var taskA = RemoveAdminRoleAsync(
+            actorA,
+            setup.AdminAId,
+            setup.AdminBId,
+            setup.AdminBRowVersion,
+            synchronization);
+        var taskB = RemoveAdminRoleAsync(
+            actorB,
+            setup.AdminBId,
+            setup.AdminAId,
+            setup.AdminARowVersion,
+            synchronization);
+        var results = await Task.WhenAll(taskA, taskB);
+
+        Assert.Equal(2, synchronization.Arrivals);
+
+        await using var verification = fixture.CreateContext();
+        var roleId = await verification.Set<MotoHubIdentityRole>()
+            .Where(role => role.NormalizedName == setup.AdminRoleName)
+            .Select(role => role.Id)
+            .SingleAsync();
+        var roles = await verification.Set<IdentityUserRole<Guid>>()
+            .Where(userRole => userRole.UserId == setup.AdminAId || userRole.UserId == setup.AdminBId)
+            .Where(userRole => userRole.RoleId == roleId)
+            .Select(userRole => userRole.UserId)
+            .ToListAsync();
+        var profiles = await verification.Users
+            .IgnoreQueryFilters()
+            .Where(user => user.Id == setup.AdminAId || user.Id == setup.AdminBId)
+            .ToDictionaryAsync(user => user.Id);
+        var tokens = await verification.RefreshTokens
+            .Where(token => token.Id == setup.TokenAId || token.Id == setup.TokenBId)
+            .ToDictionaryAsync(token => token.Id);
+        var auditTargets = await verification.AuditLogs
+            .Where(log => log.Action == "UserRolesChanged" &&
+                (log.EntityId == setup.AdminAId || log.EntityId == setup.AdminBId))
+            .Select(log => log.EntityId)
+            .ToListAsync();
+
+        var operationalAdminCount = await (
+            from userRole in verification.Set<IdentityUserRole<Guid>>()
+            join role in verification.Set<MotoHubIdentityRole>() on userRole.RoleId equals role.Id
+            join profile in verification.Users.IgnoreQueryFilters() on userRole.UserId equals profile.Id
+            where role.Id == roleId && profile.IsActive && !profile.IsDeleted
+            select userRole.UserId).Distinct().CountAsync();
+
+        Assert.True(operationalAdminCount >= 1, "The last operational Admin invariant was violated.");
+        Assert.Equal(results.Count(result => result.Response is not null), auditTargets.Count);
+        Assert.Equal(results.Count(result => result.Response is not null), auditTargets.Distinct().Count());
+
+        AssertRoleRemovalOutcome(results, setup.AdminAId, setup.AdminBId, setup.TokenBId, setup, roles, profiles, tokens, auditTargets);
+        AssertRoleRemovalOutcome(results, setup.AdminBId, setup.AdminAId, setup.TokenAId, setup, roles, profiles, tokens, auditTargets);
+    }
+
+    [Fact]
     public async Task UpdateStatusAsync_WhenTwoOperationalAdminsDeactivateEachOtherConcurrently_CharacterizesLastAdminProtection()
     {
         var setup = await CreateInitialStateAsync();
@@ -71,6 +137,97 @@ public sealed class SqlServerAdminConcurrencyTests(SqlServerTestFixture fixture)
         Assert.True(await verification.Set<IdentityUserRole<Guid>>()
             .AnyAsync(userRole => userRole.UserId == setup.AdminBId && userRole.RoleId == roleId));
     }
+
+    private async Task<RoleRemovalInitialState> CreateRoleRemovalInitialStateAsync()
+    {
+        await using var context = fixture.CreateContext();
+        var adminRole = await context.Set<MotoHubIdentityRole>()
+            .SingleOrDefaultAsync(role => role.NormalizedName == AdminSecurity.AdminRole.ToUpperInvariant());
+        if (adminRole is null)
+        {
+            adminRole = new MotoHubIdentityRole
+            {
+                Name = AdminSecurity.AdminRole,
+                NormalizedName = AdminSecurity.AdminRole.ToUpperInvariant()
+            };
+            context.Set<MotoHubIdentityRole>().Add(adminRole);
+        }
+        var adminA = NewIdentityUser("admin-role-a");
+        var adminB = NewIdentityUser("admin-role-b");
+        context.Set<MotoHubIdentityUser>().AddRange(adminA, adminB);
+        context.Set<IdentityUserRole<Guid>>().AddRange(
+            new IdentityUserRole<Guid> { UserId = adminA.Id, RoleId = adminRole.Id },
+            new IdentityUserRole<Guid> { UserId = adminB.Id, RoleId = adminRole.Id });
+        context.Users.AddRange(NewProfile(adminA), NewProfile(adminB));
+        var tokenA = NewActiveRefreshToken(adminA.Id, "role-removal-a");
+        var tokenB = NewActiveRefreshToken(adminB.Id, "role-removal-b");
+        context.RefreshTokens.AddRange(tokenA, tokenB);
+        await context.SaveChangesAsync();
+
+        var preExistingOperationalAdminIds = await (
+            from userRole in context.Set<IdentityUserRole<Guid>>()
+            join role in context.Set<MotoHubIdentityRole>() on userRole.RoleId equals role.Id
+            join profile in context.Users.IgnoreQueryFilters() on userRole.UserId equals profile.Id
+            where role.Id == adminRole.Id &&
+                  profile.IsActive && !profile.IsDeleted &&
+                  userRole.UserId != adminA.Id && userRole.UserId != adminB.Id
+            select userRole.UserId).Distinct().ToListAsync();
+        if (preExistingOperationalAdminIds.Count > 0)
+        {
+            var preExistingProfiles = await context.Users
+                .IgnoreQueryFilters()
+                .Where(profile => preExistingOperationalAdminIds.Contains(profile.Id))
+                .ToListAsync();
+            foreach (var profile in preExistingProfiles)
+                profile.IsActive = false;
+
+            await context.SaveChangesAsync();
+        }
+
+        await using var baseline = fixture.CreateContext();
+        var profiles = await baseline.Users
+            .IgnoreQueryFilters()
+            .Where(user => user.Id == adminA.Id || user.Id == adminB.Id)
+            .ToDictionaryAsync(user => user.Id);
+        var tokens = await baseline.RefreshTokens
+            .Where(token => token.Id == tokenA.Id || token.Id == tokenB.Id)
+            .ToDictionaryAsync(token => token.Id);
+        return new RoleRemovalInitialState(
+            adminA.Id,
+            adminB.Id,
+            adminRole.NormalizedName!,
+            profiles[adminA.Id].RowVersion.ToArray(),
+            profiles[adminB.Id].RowVersion.ToArray(),
+            tokenA.Id,
+            tokenB.Id,
+            tokens[tokenA.Id].RowVersion.ToArray(),
+            tokens[tokenB.Id].RowVersion.ToArray());
+    }
+
+    private async Task AssertRoleRemovalPreconditionAsync(RoleRemovalInitialState setup)
+    {
+        await using var verification = fixture.CreateContext();
+        var operationalAdminIds = await (
+            from userRole in verification.Set<IdentityUserRole<Guid>>()
+            join role in verification.Set<MotoHubIdentityRole>() on userRole.RoleId equals role.Id
+            join profile in verification.Users.IgnoreQueryFilters() on userRole.UserId equals profile.Id
+            where role.NormalizedName == setup.AdminRoleName && profile.IsActive && !profile.IsDeleted
+            select userRole.UserId).Distinct().ToListAsync();
+
+        Assert.Equal(2, operationalAdminIds.Count);
+        Assert.Equal(
+            new[] { setup.AdminAId, setup.AdminBId }.OrderBy(id => id),
+            operationalAdminIds.OrderBy(id => id));
+    }
+
+    private static RefreshToken NewActiveRefreshToken(Guid userId, string name)
+        => new()
+        {
+            UserId = userId,
+            TokenHash = JwtTokenService.HashRefreshToken($"{name}-{Guid.NewGuid():N}"),
+            ExpiresAt = DateTimeOffset.UtcNow.AddDays(7),
+            CreatedByIp = "127.0.0.1"
+        };
 
     private async Task<InitialState> CreateInitialStateAsync()
     {
@@ -156,6 +313,70 @@ public sealed class SqlServerAdminConcurrencyTests(SqlServerTestFixture fixture)
         }
     }
 
+    private static async Task<RoleActorResult> RemoveAdminRoleAsync(
+        ServiceProvider provider,
+        Guid actorId,
+        Guid targetId,
+        byte[] targetRowVersion,
+        OperationalAdminReadBarrier synchronization)
+    {
+        try
+        {
+            await using var scope = provider.CreateAsyncScope();
+            scope.ServiceProvider.GetRequiredService<IHttpContextAccessor>().HttpContext =
+                new DefaultHttpContext
+                {
+                    User = new ClaimsPrincipal(new ClaimsIdentity(
+                        [new Claim(ClaimTypes.NameIdentifier, actorId.ToString())], "test"))
+                };
+            var service = scope.ServiceProvider.GetRequiredService<IAdminUserService>();
+            var response = await service.ReplaceRolesAsync(
+                actorId,
+                targetId,
+                new AdminUserRolesRequest([], Convert.ToBase64String(targetRowVersion)),
+                "127.0.0.1",
+                default);
+            return new RoleActorResult(actorId, targetId, response, null);
+        }
+        catch (Exception exception)
+        {
+            synchronization.Cancel(exception);
+            return new RoleActorResult(actorId, targetId, null, exception);
+        }
+    }
+
+    private static void AssertRoleRemovalOutcome(
+        IReadOnlyCollection<RoleActorResult> results,
+        Guid actorId,
+        Guid targetId,
+        Guid targetTokenId,
+        RoleRemovalInitialState setup,
+        IReadOnlyCollection<Guid> roleMembers,
+        IReadOnlyDictionary<Guid, User> profiles,
+        IReadOnlyDictionary<Guid, RefreshToken> tokens,
+        IReadOnlyCollection<Guid> auditTargets)
+    {
+        var result = Assert.Single(results, item => item.ActorId == actorId);
+        var committed = result.Response is not null;
+        Assert.Equal(committed, !roleMembers.Contains(targetId));
+        Assert.Equal(committed, auditTargets.Contains(targetId));
+        Assert.Equal(committed, tokens[targetTokenId].RevokedAt is not null);
+        Assert.True(profiles[targetId].IsActive);
+        Assert.False(profiles[targetId].IsDeleted);
+
+        var initialRowVersion = targetId == setup.AdminAId ? setup.AdminARowVersion : setup.AdminBRowVersion;
+        if (committed)
+            Assert.False(initialRowVersion.SequenceEqual(profiles[targetId].RowVersion));
+        else
+            Assert.True(initialRowVersion.SequenceEqual(profiles[targetId].RowVersion));
+
+        var initialTokenRowVersion = targetTokenId == setup.TokenAId ? setup.TokenARowVersion : setup.TokenBRowVersion;
+        if (committed)
+            Assert.False(initialTokenRowVersion.SequenceEqual(tokens[targetTokenId].RowVersion));
+        else
+            Assert.True(initialTokenRowVersion.SequenceEqual(tokens[targetTokenId].RowVersion));
+    }
+
     private static void AssertProfileOutcome(
         IReadOnlyCollection<ActorResult> results,
         Guid actorId,
@@ -206,10 +427,27 @@ public sealed class SqlServerAdminConcurrencyTests(SqlServerTestFixture fixture)
         byte[] AdminARowVersion,
         byte[] AdminBRowVersion);
 
+    private sealed record RoleRemovalInitialState(
+        Guid AdminAId,
+        Guid AdminBId,
+        string AdminRoleName,
+        byte[] AdminARowVersion,
+        byte[] AdminBRowVersion,
+        Guid TokenAId,
+        Guid TokenBId,
+        byte[] TokenARowVersion,
+        byte[] TokenBRowVersion);
+
     private sealed record ActorResult(
         Guid ActorId,
         Guid TargetId,
         AdminUserStatusResponse? Response,
+        Exception? Exception);
+
+    private sealed record RoleActorResult(
+        Guid ActorId,
+        Guid TargetId,
+        AdminUserRolesResponse? Response,
         Exception? Exception);
 
     private sealed class OperationalAdminReadBarrier(
