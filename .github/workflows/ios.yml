@@ -1,0 +1,172 @@
+name: Build iOS IPA
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-ios:
+    runs-on: macos-latest
+    defaults:
+      run:
+        working-directory: frontend
+    env:
+      API_BASE_URL: ${{ vars.API_BASE_URL }}
+      IOS_GOOGLE_CLIENT_ID: ${{ vars.IOS_GOOGLE_CLIENT_ID }}
+      IOS_BUNDLE_ID: ${{ vars.IOS_BUNDLE_ID }}
+      IOS_TEAM_ID: ${{ vars.IOS_TEAM_ID }}
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: 3.44.8
+          channel: stable
+
+      - name: Validate repository variables
+        shell: bash
+        run: |
+          for name in API_BASE_URL IOS_GOOGLE_CLIENT_ID IOS_BUNDLE_ID IOS_TEAM_ID; do
+            if [[ -z "${!name}" ]]; then
+              echo "::error title=Missing repository variable::$name must be configured in Settings > Secrets and variables > Actions > Variables."
+              exit 1
+            fi
+          done
+
+          if [[ "$API_BASE_URL" != https://* ]]; then
+            echo "::error title=Invalid API_BASE_URL::Use a public HTTPS URL ending in /api."
+            exit 1
+          fi
+
+          if [[ ! "$IOS_BUNDLE_ID" =~ ^[A-Za-z0-9-]+(\.[A-Za-z0-9-]+)+$ ]]; then
+            echo "::error title=Invalid IOS_BUNDLE_ID::Use the explicit Bundle ID registered with Apple and Google."
+            exit 1
+          fi
+
+      - name: Configure Bundle ID and Google callback
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import os
+          import plistlib
+          import re
+          from pathlib import Path
+
+          bundle_id = os.environ["IOS_BUNDLE_ID"]
+          team_id = os.environ["IOS_TEAM_ID"]
+          client_id = os.environ["IOS_GOOGLE_CLIENT_ID"]
+
+          if not re.fullmatch(r"[A-Z0-9]{10}", team_id):
+              raise SystemExit("IOS_TEAM_ID must be the 10-character Apple Team ID.")
+
+          project_path = Path("ios/Runner.xcodeproj/project.pbxproj")
+          project = project_path.read_text()
+          project = project.replace("com.example.motohub", bundle_id)
+          app_bundle_setting = f"PRODUCT_BUNDLE_IDENTIFIER = {bundle_id};"
+          if project.count(app_bundle_setting) != 3:
+              raise SystemExit("Could not identify all Runner Bundle ID settings.")
+          project = project.replace(
+              app_bundle_setting,
+              f"{app_bundle_setting}\n\t\t\t\tDEVELOPMENT_TEAM = {team_id};",
+          )
+          project_path.write_text(project)
+
+          suffix = ".apps.googleusercontent.com"
+          if not client_id.endswith(suffix):
+              raise SystemExit("IOS_GOOGLE_CLIENT_ID is not a Google OAuth client ID.")
+          reversed_client_id = "com.googleusercontent.apps." + client_id[:-len(suffix)]
+
+          info_path = Path("ios/Runner/Info.plist")
+          with info_path.open("rb") as info_file:
+              info = plistlib.load(info_file)
+
+          url_types = info.setdefault("CFBundleURLTypes", [])
+          if not any(
+              reversed_client_id in url_type.get("CFBundleURLSchemes", [])
+              for url_type in url_types
+          ):
+              url_types.append({
+                  "CFBundleTypeRole": "Editor",
+                  "CFBundleURLSchemes": [reversed_client_id],
+              })
+
+          with info_path.open("wb") as info_file:
+              plistlib.dump(info, info_file, sort_keys=False)
+          PY
+
+      - name: Import Apple distribution certificate
+        uses: apple-actions/import-codesign-certs@v7
+        with:
+          p12-file-base64: ${{ secrets.IOS_CERTIFICATE_BASE64 }}
+          p12-password: ${{ secrets.IOS_CERTIFICATE_PASSWORD }}
+
+      - name: Install provisioning profile and create export options
+        shell: bash
+        env:
+          IOS_PROVISIONING_PROFILE_BASE64: ${{ secrets.IOS_PROVISIONING_PROFILE_BASE64 }}
+        run: |
+          if [[ -z "$IOS_PROVISIONING_PROFILE_BASE64" ]]; then
+            echo "::error title=Missing provisioning profile::Add IOS_PROVISIONING_PROFILE_BASE64 as a repository secret."
+            exit 1
+          fi
+
+          profile_path="$RUNNER_TEMP/motohub.mobileprovision"
+          decoded_profile="$RUNNER_TEMP/motohub-profile.plist"
+          printf '%s' "$IOS_PROVISIONING_PROFILE_BASE64" | base64 --decode > "$profile_path"
+          security cms -D -i "$profile_path" > "$decoded_profile"
+
+          profile_uuid=$(/usr/libexec/PlistBuddy -c 'Print UUID' "$decoded_profile")
+          profile_name=$(/usr/libexec/PlistBuddy -c 'Print Name' "$decoded_profile")
+          profile_team=$(/usr/libexec/PlistBuddy -c 'Print :TeamIdentifier:0' "$decoded_profile")
+          profile_app_id=$(/usr/libexec/PlistBuddy -c 'Print :Entitlements:application-identifier' "$decoded_profile")
+
+          if [[ "$profile_team" != "$IOS_TEAM_ID" || "$profile_app_id" != *".$IOS_BUNDLE_ID" ]]; then
+            echo "::error title=Provisioning profile mismatch::The profile must match IOS_TEAM_ID and IOS_BUNDLE_ID."
+            exit 1
+          fi
+
+          profile_directory="$HOME/Library/MobileDevice/Provisioning Profiles"
+          mkdir -p "$profile_directory"
+          cp "$profile_path" "$profile_directory/$profile_uuid.mobileprovision"
+          export IOS_PROFILE_NAME="$profile_name"
+
+          python3 - <<'PY'
+          import os
+          import plistlib
+          from pathlib import Path
+
+          export_options = {
+              "method": "app-store-connect",
+              "signingStyle": "manual",
+              "teamID": os.environ["IOS_TEAM_ID"],
+              "provisioningProfiles": {
+                  os.environ["IOS_BUNDLE_ID"]: os.environ["IOS_PROFILE_NAME"],
+              },
+          }
+          with Path(os.environ["RUNNER_TEMP"], "ExportOptions.plist").open("wb") as output:
+              plistlib.dump(export_options, output, sort_keys=False)
+          PY
+
+      - name: Install Flutter dependencies
+        run: flutter pub get
+
+      - name: Build signed IPA
+        run: |
+          flutter build ipa --release \
+            --export-options-plist "$RUNNER_TEMP/ExportOptions.plist" \
+            --build-number "$GITHUB_RUN_NUMBER" \
+            --dart-define=APP_ENV=production \
+            --dart-define="API_BASE_URL=$API_BASE_URL" \
+            --dart-define="IOS_GOOGLE_CLIENT_ID=$IOS_GOOGLE_CLIENT_ID"
+
+      - name: Upload IPA artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: motohub-ios-ipa
+          path: frontend/build/ios/ipa/*.ipa
+          if-no-files-found: error
