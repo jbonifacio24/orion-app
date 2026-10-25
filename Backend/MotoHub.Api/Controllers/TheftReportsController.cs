@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using MotoHub.Application;
 using MotoHub.Application.Marketplace;
 using MotoHub.Application.TheftReports;
 
@@ -32,4 +33,13 @@ public sealed class TheftReportsController(ITheftReportService theftReportServic
     [HttpPatch("{id:guid}/status")]
     public Task<TheftReportResponseDto> UpdateStatus(Guid id, UpdateTheftReportStatusRequestDto request, CancellationToken cancellationToken)
         => theftReportService.UpdateStatusAsync(CurrentUserId(), id, request, cancellationToken);
+
+    [HttpDelete("{id:guid}")]
+    [Authorize(Policy = AdminSecurity.AdminAccessPolicy)]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    public async Task<IActionResult> Delete(Guid id, CancellationToken cancellationToken)
+    {
+        await theftReportService.DeleteAsync(id, cancellationToken);
+        return NoContent();
+    }
 }

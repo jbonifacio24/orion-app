@@ -93,6 +93,87 @@ public sealed class SqlServerAdminConcurrencyTests(SqlServerTestFixture fixture)
     }
 
     [Fact]
+    public async Task UpdateStatusAndReplaceRolesAsync_WhenTwoOperationalAdminsRemoveEachOtherConcurrently_CharacterizesLastAdminProtection()
+    {
+        var setup = await CreateRoleRemovalInitialStateAsync();
+        await AssertRoleRemovalPreconditionAsync(setup);
+        using var synchronization = new OperationalAdminReadBarrier(
+            setup.AdminRoleName,
+            [setup.AdminAId, setup.AdminBId],
+            TimeSpan.FromSeconds(30));
+        await using var actorA = CreateProvider(synchronization);
+        await using var actorB = CreateProvider(synchronization);
+
+        var statusTask = DeactivateAsync(
+            actorA,
+            setup.AdminAId,
+            setup.AdminBId,
+            setup.AdminBRowVersion,
+            synchronization);
+        var roleTask = RemoveAdminRoleAsync(
+            actorB,
+            setup.AdminBId,
+            setup.AdminAId,
+            setup.AdminARowVersion,
+            synchronization);
+        await Task.WhenAll(statusTask, roleTask);
+        var statusOutcome = await statusTask;
+        var roleOutcome = await roleTask;
+
+        Assert.Equal(2, synchronization.Arrivals);
+
+        await using var verification = fixture.CreateContext();
+        var roleId = await verification.Set<MotoHubIdentityRole>()
+            .Where(role => role.NormalizedName == setup.AdminRoleName)
+            .Select(role => role.Id)
+            .SingleAsync();
+        var roleMembers = await verification.Set<IdentityUserRole<Guid>>()
+            .Where(userRole => userRole.UserId == setup.AdminAId || userRole.UserId == setup.AdminBId)
+            .Where(userRole => userRole.RoleId == roleId)
+            .Select(userRole => userRole.UserId)
+            .ToListAsync();
+        var roleMemberSet = roleMembers.ToHashSet();
+        var profiles = await verification.Users
+            .IgnoreQueryFilters()
+            .Where(user => user.Id == setup.AdminAId || user.Id == setup.AdminBId)
+            .ToDictionaryAsync(user => user.Id);
+        var tokens = await verification.RefreshTokens
+            .Where(token => token.Id == setup.TokenAId || token.Id == setup.TokenBId)
+            .ToDictionaryAsync(token => token.Id);
+        var statusAudits = await verification.AuditLogs
+            .Where(log => log.Action == "UserDeactivated" && log.EntityId == setup.AdminBId)
+            .CountAsync();
+        var roleAudits = await verification.AuditLogs
+            .Where(log => log.Action == "UserRolesChanged" && log.EntityId == setup.AdminAId)
+            .CountAsync();
+        var operationalAdminIds = await (
+            from userRole in verification.Set<IdentityUserRole<Guid>>()
+            join role in verification.Set<MotoHubIdentityRole>() on userRole.RoleId equals role.Id
+            join profile in verification.Users.IgnoreQueryFilters() on userRole.UserId equals profile.Id
+            where role.Id == roleId && profile.IsActive && !profile.IsDeleted
+            select userRole.UserId).Distinct().ToListAsync();
+
+        Assert.True(operationalAdminIds.Count >= 1, "The last operational Admin invariant was violated.");
+
+        var statusCommitted = statusOutcome.Response is not null;
+        var roleCommitted = roleOutcome.Response is not null;
+
+        Assert.Equal(statusCommitted, !profiles[setup.AdminBId].IsActive);
+        Assert.Equal(statusCommitted, tokens[setup.TokenBId].RevokedAt is not null);
+        Assert.Equal(statusCommitted ? 1 : 0, statusAudits);
+        Assert.Equal(statusCommitted, !setup.AdminBRowVersion.SequenceEqual(profiles[setup.AdminBId].RowVersion));
+        Assert.False(profiles[setup.AdminBId].IsDeleted);
+        Assert.Contains(setup.AdminBId, roleMemberSet);
+
+        Assert.Equal(roleCommitted, !roleMemberSet.Contains(setup.AdminAId));
+        Assert.Equal(roleCommitted, tokens[setup.TokenAId].RevokedAt is not null);
+        Assert.Equal(roleCommitted ? 1 : 0, roleAudits);
+        Assert.Equal(roleCommitted, !setup.AdminARowVersion.SequenceEqual(profiles[setup.AdminAId].RowVersion));
+        Assert.True(profiles[setup.AdminAId].IsActive);
+        Assert.False(profiles[setup.AdminAId].IsDeleted);
+    }
+
+    [Fact]
     public async Task UpdateStatusAsync_WhenTwoOperationalAdminsDeactivateEachOtherConcurrently_CharacterizesLastAdminProtection()
     {
         var setup = await CreateInitialStateAsync();

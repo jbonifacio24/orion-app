@@ -13,7 +13,10 @@ public sealed record SellerSummaryDto(
     Guid Id,
     string UserName,
     string? DisplayName,
-    string? ProfileImageUrl);
+    string? ProfileImageUrl,
+    int SuccessfulSales = 0,
+    decimal AverageRating = 0,
+    int RatingCount = 0);
 
 public sealed record ProductCategoryResponseDto(
     Guid Id,
@@ -38,7 +41,10 @@ public sealed record ProductResponseDto(
     DateTimeOffset? PublishedAt,
     DateTimeOffset CreatedAt,
     string RowVersion,
-    IReadOnlyCollection<ProductImageResponseDto> Images);
+    IReadOnlyCollection<ProductImageResponseDto> Images,
+    decimal? Latitude = null,
+    decimal? Longitude = null,
+    string? PaymentMethod = null);
 
 public sealed record ProductDetailResponseDto(
     Guid Id,
@@ -58,7 +64,10 @@ public sealed record ProductDetailResponseDto(
     SellerSummaryDto Seller,
     IReadOnlyCollection<ProductImageResponseDto> Images,
     bool IsFavorite,
-    bool IsOwner);
+    bool IsOwner,
+    decimal? Latitude = null,
+    decimal? Longitude = null,
+    string? PaymentMethod = null);
 
 public sealed record CreateProductRequestDto(
     Guid CategoryId,
@@ -68,7 +77,10 @@ public sealed record CreateProductRequestDto(
     string? Currency,
     int? StockQuantity,
     ProductCondition Condition,
-    string? Location);
+    string? Location,
+    decimal? Latitude = null,
+    decimal? Longitude = null,
+    string? PaymentMethod = null);
 
 public sealed record UpdateProductRequestDto(
     Guid CategoryId,
@@ -79,7 +91,10 @@ public sealed record UpdateProductRequestDto(
     int? StockQuantity,
     ProductCondition Condition,
     string? Location,
-    string ExpectedRowVersion);
+    string ExpectedRowVersion,
+    decimal? Latitude = null,
+    decimal? Longitude = null,
+    string? PaymentMethod = null);
 
 public sealed record ProductListQueryDto(
     string? Search = null,

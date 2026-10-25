@@ -23,6 +23,13 @@ class AuthRepositoryImpl implements AuthRepository {
   }
 
   @override
+  Future<AuthUser> loginWithGoogle(String idToken) async {
+    final response = await _dataSource.loginWithGoogle(idToken);
+    await _saveSession(response);
+    return _currentUser!;
+  }
+
+  @override
   Future<AuthUser> register({
     required String email,
     required String userName,
@@ -70,7 +77,17 @@ class AuthRepositoryImpl implements AuthRepository {
   }
 
   @override
-  Future<void> forgotPassword(String email) => _dataSource.forgotPassword(email);
+  Future<void> forgotPassword(String email) =>
+      _dataSource.forgotPassword(email);
+
+  @override
+  Future<void> confirmEmail(String userId, String token) async {
+    try {
+      await _dataSource.confirmEmail(userId, token);
+    } catch (error) {
+      throw ErrorMapper.from(error);
+    }
+  }
 
   Future<void> _saveSession(AuthResponseModel response) async {
     await _tokenStorage.save(response.accessToken, response.refreshToken);

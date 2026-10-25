@@ -72,7 +72,7 @@ class ChatParticipantModel extends ChatParticipant {
 }
 
 class ChatMessageModel extends ChatMessage {
-  const ChatMessageModel({required super.id, required super.conversationId, required super.senderUserId, required super.senderDisplayName, required super.senderProfileImageUrl, required super.content, required super.messageType, required super.sentAt, required super.replyToMessageId});
+  const ChatMessageModel({required super.id, required super.conversationId, required super.senderUserId, required super.senderDisplayName, required super.senderProfileImageUrl, required super.content, required super.messageType, required super.sentAt, required super.replyToMessageId, super.attachments});
 
   factory ChatMessageModel.fromJson(Map<String, dynamic> json) => ChatMessageModel(
         id: _requiredString(json, 'id'),
@@ -84,11 +84,17 @@ class ChatMessageModel extends ChatMessage {
         messageType: _messageType(json['messageType']),
         sentAt: _requiredDate(json, 'sentAt'),
         replyToMessageId: json['replyToMessageId'] as String?,
+        attachments: (json['attachments'] as List<dynamic>? ?? const []).whereType<Map<String, dynamic>>().map(ChatAttachmentModel.fromJson).toList(growable: false),
       );
 }
 
+class ChatAttachmentModel extends ChatAttachment {
+  const ChatAttachmentModel({required super.id, required super.url, required super.fileName, required super.contentType, required super.sizeBytes});
+  factory ChatAttachmentModel.fromJson(Map<String, dynamic> json) => ChatAttachmentModel(id: _requiredString(json, 'id'), url: _requiredString(json, 'url'), fileName: json['fileName'] as String? ?? '', contentType: json['contentType'] as String? ?? '', sizeBytes: json['sizeBytes'] is int ? json['sizeBytes'] as int : 0);
+}
+
 class ConversationModel extends Conversation {
-  const ConversationModel({required super.id, required super.type, required super.createdAt, required super.lastMessageAt, required super.participant, required super.lastMessage, required super.unreadCount});
+  const ConversationModel({required super.id, required super.type, required super.createdAt, required super.lastMessageAt, required super.participant, required super.lastMessage, required super.unreadCount, super.title, super.participantCount});
 
   factory ConversationModel.fromJson(Map<String, dynamic> json) {
     final rawParticipant = json['participant'];
@@ -104,6 +110,8 @@ class ConversationModel extends Conversation {
       participant: ChatParticipantModel.fromJson(rawParticipant),
       lastMessage: rawLastMessage is Map<String, dynamic> ? ChatMessageModel.fromJson(rawLastMessage) : null,
       unreadCount: json['unreadCount'] is int ? json['unreadCount'] as int : 0,
+      title: json['title'] as String?,
+      participantCount: json['participantCount'] is int ? json['participantCount'] as int : 0,
     );
   }
 }

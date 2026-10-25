@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:flutter_map/flutter_map.dart';
+import 'package:latlong2/latlong.dart';
 
 import '../../../../core/widgets/app_error_state.dart';
 import '../../../../core/widgets/app_loading.dart';
@@ -53,7 +55,36 @@ class _ReportDetail extends StatelessWidget {
           if (report.color?.trim().isNotEmpty == true) _Field(label: 'Color', value: report.color!),
           _Field(label: 'Fecha del robo', value: '${report.theftDate.day.toString().padLeft(2, '0')}/${report.theftDate.month.toString().padLeft(2, '0')}/${report.theftDate.year}'),
           if (report.theftLocation?.trim().isNotEmpty == true) _Field(label: 'Lugar', value: report.theftLocation!),
+          if (report.latitude != null && report.longitude != null) ...[
+            const SizedBox(height: 4),
+            Text('Ubicación en el mapa', style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800)),
+            const SizedBox(height: 10),
+            _TheftLocationMap(latitude: report.latitude!, longitude: report.longitude!),
+          ],
         ]),
+      );
+}
+
+class _TheftLocationMap extends StatelessWidget {
+  const _TheftLocationMap({required this.latitude, required this.longitude});
+
+  final double latitude;
+  final double longitude;
+
+  @override
+  Widget build(BuildContext context) => ClipRRect(
+        borderRadius: BorderRadius.circular(18),
+        child: SizedBox(
+          height: 250,
+          child: FlutterMap(
+            options: MapOptions(initialCenter: LatLng(latitude, longitude), initialZoom: 15),
+            children: [
+              TileLayer(urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png', userAgentPackageName: 'com.motohub.app'),
+              MarkerLayer(markers: [Marker(point: LatLng(latitude, longitude), width: 56, height: 64, child: const Icon(Icons.location_on_rounded, color: Colors.red, size: 52))]),
+              const RichAttributionWidget(attributions: [TextSourceAttribution('OpenStreetMap contributors')]),
+            ],
+          ),
+        ),
       );
 }
 

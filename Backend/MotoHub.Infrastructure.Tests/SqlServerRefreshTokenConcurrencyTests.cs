@@ -144,6 +144,8 @@ public sealed class SqlServerRefreshTokenConcurrencyTests(SqlServerTestFixture f
         services.AddScoped<JwtTokenService>();
         services.AddScoped<ISessionRevocationService, SessionRevocationService>();
         services.AddScoped<AuthenticationService>();
+        services.AddSingleton<IGoogleIdentityTokenValidator>(new StaticGoogleIdentityTokenValidator(
+            new GoogleIdentity("test-subject", "refresh@example.com", true, "Refresh", "User")));
         services.AddSingleton<IEmailSender, NoOpEmailSender>();
 
         return services.BuildServiceProvider(new ServiceProviderOptions { ValidateScopes = true });

@@ -18,6 +18,10 @@ public sealed class MotoHubDbContext(DbContextOptions<MotoHubDbContext> options)
     public DbSet<MotorcycleImage> MotorcycleImages => Set<MotorcycleImage>();
     public DbSet<ProductCategory> ProductCategories => Set<ProductCategory>();
     public DbSet<Product> Products => Set<Product>();
+    public DbSet<ProductTransaction> ProductTransactions => Set<ProductTransaction>();
+    public DbSet<ProductTransactionReview> ProductTransactionReviews => Set<ProductTransactionReview>();
+    public DbSet<Delivery> Deliveries => Set<Delivery>();
+    public DbSet<DeliveryDriverProfile> DeliveryDriverProfiles => Set<DeliveryDriverProfile>();
     public DbSet<ProductImage> ProductImages => Set<ProductImage>();
     public DbSet<ProductFavorite> ProductFavorites => Set<ProductFavorite>();
     public DbSet<MotorcycleFavorite> MotorcycleFavorites => Set<MotorcycleFavorite>();
@@ -32,6 +36,7 @@ public sealed class MotoHubDbContext(DbContextOptions<MotoHubDbContext> options)
     public DbSet<Notification> Notifications => Set<Notification>();
     public DbSet<UserDevice> UserDevices => Set<UserDevice>();
     public DbSet<Conversation> Conversations => Set<Conversation>();
+    public DbSet<TravelRoute> TravelRoutes => Set<TravelRoute>();
     public DbSet<ConversationParticipant> ConversationParticipants => Set<ConversationParticipant>();
     public DbSet<Message> Messages => Set<Message>();
     public DbSet<MessageAttachment> MessageAttachments => Set<MessageAttachment>();

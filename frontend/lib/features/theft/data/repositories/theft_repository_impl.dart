@@ -23,6 +23,9 @@ class TheftRepositoryImpl implements TheftRepository {
   @override
   Future<TheftReport> updateStatus(String id, TheftReportStatus status) => _map(() => _dataSource.updateStatus(id, status));
 
+  @override
+  Future<void> deleteReport(String id) => _map(() => _dataSource.deleteReport(id));
+
   Future<T> _map<T>(Future<T> Function() action) async {
     try {
       return await action();

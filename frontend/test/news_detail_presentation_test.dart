@@ -98,6 +98,10 @@ class _PageRepository implements NewsRepository {
   }
 
   @override
+  Future<NewsDetail> createNews({required String title, String? summary, required String content, String? featuredImageUrl}) =>
+      Future.error(UnsupportedError('Not used in detail page tests'));
+
+  @override
   Future<PagedNews> getNewsFeed({required int page, required int pageSize, String? categoryId}) =>
       Future.error(UnsupportedError('Not used in detail page tests'));
 }

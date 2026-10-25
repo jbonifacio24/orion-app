@@ -5,10 +5,11 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../core/error/error_mapper.dart';
 import '../../domain/entities/workshop.dart';
 import '../../domain/entities/workshop_filters.dart';
+import '../../domain/usecases/delete_workshop.dart';
 import '../../domain/usecases/get_workshops.dart';
 
 class WorkshopsState {
-  const WorkshopsState({this.items = const [], this.filters = const WorkshopFilters(), this.page = 0, this.totalPages = 0, this.totalCount = 0, this.isInitialLoading = false, this.isLoadingMore = false, this.isRefreshing = false, this.failure, this.loadingMoreFailure});
+  const WorkshopsState({this.items = const [], this.filters = const WorkshopFilters(), this.page = 0, this.totalPages = 0, this.totalCount = 0, this.isInitialLoading = false, this.isLoadingMore = false, this.isRefreshing = false, this.deletingId, this.failure, this.loadingMoreFailure});
 
   final List<Workshop> items;
   final WorkshopFilters filters;
@@ -18,10 +19,11 @@ class WorkshopsState {
   final bool isInitialLoading;
   final bool isLoadingMore;
   final bool isRefreshing;
+  final String? deletingId;
   final String? failure;
   final String? loadingMoreFailure;
 
-  WorkshopsState copyWith({List<Workshop>? items, WorkshopFilters? filters, int? page, int? totalPages, int? totalCount, bool? isInitialLoading, bool? isLoadingMore, bool? isRefreshing, String? failure, bool clearFailure = false, String? loadingMoreFailure, bool clearLoadingMoreFailure = false}) => WorkshopsState(
+  WorkshopsState copyWith({List<Workshop>? items, WorkshopFilters? filters, int? page, int? totalPages, int? totalCount, bool? isInitialLoading, bool? isLoadingMore, bool? isRefreshing, String? deletingId, bool clearDeletingId = false, String? failure, bool clearFailure = false, String? loadingMoreFailure, bool clearLoadingMoreFailure = false}) => WorkshopsState(
         items: items ?? this.items,
         filters: filters ?? this.filters,
         page: page ?? this.page,
@@ -30,18 +32,34 @@ class WorkshopsState {
         isInitialLoading: isInitialLoading ?? this.isInitialLoading,
         isLoadingMore: isLoadingMore ?? this.isLoadingMore,
         isRefreshing: isRefreshing ?? this.isRefreshing,
+        deletingId: clearDeletingId ? null : deletingId ?? this.deletingId,
         failure: clearFailure ? null : failure ?? this.failure,
         loadingMoreFailure: clearLoadingMoreFailure ? null : loadingMoreFailure ?? this.loadingMoreFailure,
       );
 }
 
 class WorkshopsCubit extends Cubit<WorkshopsState> {
-  WorkshopsCubit(this._getWorkshops) : super(const WorkshopsState());
+  WorkshopsCubit(this._getWorkshops, this._deleteWorkshop) : super(const WorkshopsState());
 
   final GetWorkshops _getWorkshops;
+  final DeleteWorkshop _deleteWorkshop;
   Timer? _searchTimer;
   Timer? _cityTimer;
   int _generation = 0;
+
+  Future<bool> delete(String id) async {
+    if (state.deletingId != null) return false;
+    emit(state.copyWith(deletingId: id, clearFailure: true));
+    try {
+      await _deleteWorkshop(id);
+      emit(state.copyWith(items: state.items.where((workshop) => workshop.id != id).toList(growable: false), totalCount: state.totalCount > 0 ? state.totalCount - 1 : 0, clearDeletingId: true));
+      return true;
+    } catch (error) {
+      emit(state.copyWith(deletingId: id, failure: ErrorMapper.from(error).message));
+      emit(state.copyWith(clearDeletingId: true));
+      return false;
+    }
+  }
 
   Future<void> load() => _loadPage(1, reset: true);
 

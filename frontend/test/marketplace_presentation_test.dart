@@ -108,7 +108,7 @@ void main() {
             categories: const [ProductCategory(id: 'category-1', parentCategoryId: null, name: 'Accesorios', slug: 'accesorios', description: null, displayOrder: 1, isActive: true)],
             initial: null,
             loading: false,
-            onSubmit: ({required categoryId, required name, required description, price, currency, stockQuantity, required condition, location}) async {
+            onSubmit: ({required categoryId, required name, required description, price, currency, stockQuantity, required condition, location, latitude, longitude, paymentMethod}) async {
               submissions++;
               return true;
             },
@@ -182,10 +182,10 @@ class _FakeMarketplaceRepository implements MarketplaceRepository {
   Future<PagedProducts> getMyProducts(ProductFilters filters, {int page = 1}) => throw UnimplementedError();
 
   @override
-  Future<Product> createProduct({required String categoryId, required String name, required String description, double? price, String? currency, int? stockQuantity, required ProductCondition condition, String? location}) => throw UnimplementedError();
+  Future<Product> createProduct({required String categoryId, required String name, required String description, double? price, String? currency, int? stockQuantity, required ProductCondition condition, String? location, double? latitude, double? longitude, String? paymentMethod}) => throw UnimplementedError();
 
   @override
-  Future<Product> updateProduct({required String id, required String categoryId, required String name, required String description, double? price, String? currency, int? stockQuantity, required ProductCondition condition, String? location, required String expectedRowVersion}) async { this.expectedRowVersion = expectedRowVersion; return _detail; }
+  Future<Product> updateProduct({required String id, required String categoryId, required String name, required String description, double? price, String? currency, int? stockQuantity, required ProductCondition condition, String? location, double? latitude, double? longitude, String? paymentMethod, required String expectedRowVersion}) async { this.expectedRowVersion = expectedRowVersion; return _detail; }
 
   @override
   Future<List<ProductCategory>> getCategories() => throw UnimplementedError();

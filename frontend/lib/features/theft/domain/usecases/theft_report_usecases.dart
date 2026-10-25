@@ -31,3 +31,9 @@ class UpdateTheftReportStatus {
   final TheftRepository _repository;
   Future<TheftReport> call(String id, TheftReportStatus status) => _repository.updateStatus(id, status);
 }
+
+class DeleteTheftReport {
+  const DeleteTheftReport(this._repository);
+  final TheftRepository _repository;
+  Future<void> call(String id) => _repository.deleteReport(id);
+}

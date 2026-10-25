@@ -83,13 +83,11 @@ class _CommunityFeedPageState extends State<CommunityFeedPage> {
       child: Scaffold(
         appBar: AppBar(
           title: Text(AppLocalizations.communityTitle(locale)),
-          actions: [
-            IconButton(
-              tooltip: AppLocalizations.communityCreate(locale),
-              onPressed: _openCreate,
-              icon: const Icon(Icons.add_circle_outline),
-            ),
-          ],
+        ),
+        floatingActionButton: FloatingActionButton.extended(
+          onPressed: _openCreate,
+          icon: const Icon(Icons.add),
+          label: Text(AppLocalizations.communityCreate(locale)),
         ),
         body: BlocBuilder<CommunityFeedCubit, CommunityFeedState>(
           builder: (context, state) => _buildContent(context, state, locale),

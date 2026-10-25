@@ -25,7 +25,7 @@ void main() {
     final image = await source.uploadProductImage('product-1', ProductImageUpload(bytes: bytes, fileName: 'photo.jpg', sizeBytes: bytes.length));
 
     expect(image.id, 'image-1');
-    expect(adapter.path, '/api/products/product-1/images');
+    expect(adapter.path, '/products/product-1/images');
     expect(adapter.method, 'POST');
     expect(adapter.fileField, isTrue);
     expect(adapter.fileName, 'photo.jpg');

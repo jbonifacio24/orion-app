@@ -40,6 +40,19 @@ public sealed class ConversationsController(IChatService chatService) : CurrentU
         return Ok(message);
     }
 
+    [HttpPost("{conversationId:guid}/attachments")]
+    [Consumes("multipart/form-data")]
+    public async Task<IActionResult> SendAttachment(
+        Guid conversationId,
+        IFormFile file,
+        CancellationToken cancellationToken)
+    {
+        await using var content = file.OpenReadStream();
+        var message = await chatService.SendAttachmentAsync(CurrentUserId(), conversationId, content,
+            file.FileName, file.ContentType, file.Length, cancellationToken);
+        return Ok(message);
+    }
+
     [HttpPatch("{conversationId:guid}/read")]
     public async Task<IActionResult> MarkRead(Guid conversationId, CancellationToken cancellationToken)
     {

@@ -14,9 +14,12 @@ class CreateMotorcyclePage extends StatelessWidget {
           BlocBuilder<MotorcycleCubit, MotorcycleState>(builder: (context, state) {
             return Column(children: [
               if (state.message != null) Text(state.message!, style: TextStyle(color: Theme.of(context).colorScheme.error)),
-              MotorcycleForm(loading: state.operation == MotorcycleOperation.creating, onSubmit: ({required brand, required model, required year, displacement, color, licensePlate, vin, description, required isPrimary}) async {
-                final result = await context.read<MotorcycleCubit>().create(brand: brand, model: model, year: year, displacement: displacement, color: color, licensePlate: licensePlate, vin: vin, description: description, isPrimary: isPrimary);
-                if (context.mounted && result != null) Navigator.of(context).pop(true);
+              MotorcycleForm(loading: state.operation == MotorcycleOperation.creating || state.operation == MotorcycleOperation.uploading, onSubmit: ({required brand, required model, required year, displacement, color, licensePlate, vin, description, required isPrimary, required images}) async {
+                final cubit = context.read<MotorcycleCubit>();
+                final result = await cubit.create(brand: brand, model: model, year: year, displacement: displacement, color: color, licensePlate: licensePlate, vin: vin, description: description, isPrimary: isPrimary);
+                if (!context.mounted || result == null) return;
+                final uploaded = await cubit.uploadImages(result.id, images);
+                if (context.mounted && uploaded) Navigator.of(context).pop(true);
               }),
             ]);
           }),

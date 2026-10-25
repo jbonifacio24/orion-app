@@ -29,6 +29,8 @@ using MotoHub.Application.News;
 using MotoHub.Infrastructure.News;
 using MotoHub.Application.Moderation;
 using MotoHub.Infrastructure.Moderation;
+using MotoHub.Application.Routes;
+using MotoHub.Infrastructure.Routes;
 
 namespace MotoHub.Infrastructure;
 
@@ -62,10 +64,12 @@ public static class DependencyInjection
         services.Configure<PushTokenEncryptionOptions>(configuration.GetSection("Security"));
         services.Configure<JwtOptions>(configuration.GetSection("Jwt"));
         services.Configure<AuthOptions>(configuration.GetSection("Auth"));
+        services.Configure<GoogleAuthOptions>(configuration.GetSection("GoogleAuth"));
         services.Configure<AdminBootstrapOptions>(configuration.GetSection("AdminBootstrap"));
         services.Configure<EmailOptions>(configuration.GetSection("Email"));
         services.Configure<ProductImageStorageOptions>(configuration.GetSection("ProductImages"));
         services.AddScoped<JwtTokenService>();
+        services.AddScoped<IGoogleIdentityTokenValidator, GoogleIdentityTokenValidator>();
         services.AddScoped<IAuthenticationService, AuthenticationService>();
         services.AddScoped<IOperationalUserAccessService, OperationalUserAccessService>();
         services.AddScoped<ISessionRevocationService, SessionRevocationService>();
@@ -79,7 +83,10 @@ public static class DependencyInjection
         services.AddHttpContextAccessor();
         services.AddScoped<IProfileService, Profile.ProfileService>();
         services.AddScoped<IMotorcycleService, Motorcycles.MotorcycleService>();
+        services.AddScoped<IMotorcycleImageService, Motorcycles.MotorcycleImageService>();
         services.AddScoped<IProductService, ProductService>();
+        services.AddScoped<IProductTransactionService, ProductTransactionService>();
+        services.AddScoped<IDeliveryService, DeliveryService>();
         services.AddScoped<ICategoryService, CategoryService>();
         services.AddScoped<IFavoriteService, FavoriteService>();
         services.AddScoped<IProductImageService, ProductImageService>();
@@ -90,8 +97,10 @@ public static class DependencyInjection
         services.AddScoped<ICommunityService, CommunityService>();
         services.AddScoped<INewsService, NewsService>();
         services.AddScoped<IModerationReportService, ModerationReportService>();
+        services.AddScoped<ITravelRouteService, TravelRouteService>();
         services.AddSingleton<ImageFileValidator>();
         services.AddSingleton<IProductImageStorage, LocalProductImageStorage>();
+        services.AddSingleton<IMotorcycleImageStorage, LocalMotorcycleImageStorage>();
         services.AddScoped<ProductCategorySeeder>();
         services.AddScoped<IEmailSender, SmtpEmailSender>();
         services.AddSingleton<IPushTokenProtector, AesGcmPushTokenProtector>();

@@ -14,6 +14,7 @@ class SignalRChatRealtimeDataSource implements ChatRealtimeRepository {
   final TokenStorage _tokenStorage;
   final _messagesController = StreamController<ChatMessage>.broadcast();
   final _connectionStatesController = StreamController<ChatRealtimeConnectionState>.broadcast();
+  final _routeLocationsController = StreamController<RouteLocation>.broadcast();
 
   HubConnection? _connection;
   Future<void>? _startFuture;
@@ -25,6 +26,9 @@ class SignalRChatRealtimeDataSource implements ChatRealtimeRepository {
 
   @override
   Stream<ChatRealtimeConnectionState> get connectionStates => _connectionStatesController.stream;
+
+  @override
+  Stream<RouteLocation> get routeLocations => _routeLocationsController.stream;
 
   @override
   Future<void> start() {
@@ -89,6 +93,15 @@ class SignalRChatRealtimeDataSource implements ChatRealtimeRepository {
         // A malformed event must not terminate the shared realtime stream.
       }
     });
+    connection.on('LocationUpdated', (arguments) {
+      if (!_isCurrent(connection, generation) || arguments == null || arguments.isEmpty || arguments.first is! Map) return;
+      final payload = Map<String, dynamic>.from(arguments.first as Map);
+      final latitude = (payload['latitude'] as num?)?.toDouble();
+      final longitude = (payload['longitude'] as num?)?.toDouble();
+      if (payload['conversationId'] is String && payload['userId'] is String && latitude != null && longitude != null) {
+        _routeLocationsController.add(RouteLocation(conversationId: payload['conversationId'] as String, userId: payload['userId'] as String, displayName: payload['displayName'] as String? ?? 'Usuario', latitude: latitude, longitude: longitude, updatedAt: DateTime.tryParse(payload['updatedAt'] as String? ?? '')?.toUtc() ?? DateTime.now().toUtc()));
+      }
+    });
     connection.onreconnecting(({error}) {
       if (_isCurrent(connection, generation)) _emitState(ChatRealtimeConnectionState.reconnecting);
     });
@@ -114,6 +127,13 @@ class SignalRChatRealtimeDataSource implements ChatRealtimeRepository {
     final connection = _connection;
     if (connection?.state != HubConnectionState.Connected) return;
     await connection!.invoke('LeaveConversation', args: [conversationId]);
+  }
+
+  @override
+  Future<void> publishRouteLocation(String conversationId, {required double latitude, required double longitude}) async {
+    final connection = _connection;
+    if (connection?.state != HubConnectionState.Connected) return;
+    await connection!.invoke('UpdateRouteLocation', args: [conversationId, latitude, longitude]);
   }
 
   @override

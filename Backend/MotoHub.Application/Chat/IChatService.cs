@@ -9,8 +9,10 @@ public interface IChatService
     Task<ConversationResponseDto> GetOrCreateDirectAsync(Guid userId, DirectConversationRequest request, CancellationToken cancellationToken);
     Task<PagedResponse<MessageResponseDto>> GetMessagesAsync(Guid userId, Guid conversationId, MessageListQueryDto query, CancellationToken cancellationToken);
     Task<MessageResponseDto> SendMessageAsync(Guid userId, Guid conversationId, SendMessageRequest request, CancellationToken cancellationToken);
+    Task<MessageResponseDto> SendAttachmentAsync(Guid userId, Guid conversationId, Stream content, string fileName, string contentType, long length, CancellationToken cancellationToken);
     Task MarkReadAsync(Guid userId, Guid conversationId, CancellationToken cancellationToken);
     Task EnsureActiveParticipantAsync(Guid userId, Guid conversationId, CancellationToken cancellationToken);
+    Task<RouteLocationResponseDto> PublishRouteLocationAsync(Guid userId, Guid conversationId, double latitude, double longitude, CancellationToken cancellationToken);
 }
 
 public interface IChatRealtimeNotifier
@@ -36,7 +38,9 @@ public sealed record ConversationResponseDto(
     DateTimeOffset? LastMessageAt,
     ConversationParticipantResponseDto Participant,
     MessageResponseDto? LastMessage,
-    int UnreadCount);
+    int UnreadCount,
+    string? Title = null,
+    int ParticipantCount = 0);
 
 public sealed record ConversationParticipantResponseDto(
     Guid UserId,
@@ -52,4 +56,20 @@ public sealed record MessageResponseDto(
     string Content,
     MessageType MessageType,
     DateTimeOffset SentAt,
-    Guid? ReplyToMessageId);
+    Guid? ReplyToMessageId,
+    IReadOnlyCollection<MessageAttachmentResponseDto>? Attachments = null);
+
+public sealed record MessageAttachmentResponseDto(
+    Guid Id,
+    string Url,
+    string FileName,
+    string ContentType,
+    long SizeBytes);
+
+public sealed record RouteLocationResponseDto(
+    Guid ConversationId,
+    Guid UserId,
+    string DisplayName,
+    double Latitude,
+    double Longitude,
+    DateTimeOffset UpdatedAt);

@@ -10,11 +10,11 @@ namespace MotoHub.Api.Controllers;
 public sealed class ProductsController(IProductService productService) : CurrentUserControllerBase
 {
     [HttpGet]
-    public Task<PagedResponse<ProductResponseDto>> Get(ProductListQueryDto query, CancellationToken cancellationToken)
+    public Task<PagedResponse<ProductResponseDto>> Get([FromQuery] ProductListQueryDto query, CancellationToken cancellationToken)
         => productService.GetActiveAsync(query, CurrentUserId(), cancellationToken);
 
     [HttpGet("mine")]
-    public Task<PagedResponse<ProductResponseDto>> GetMine(ProductListQueryDto query, CancellationToken cancellationToken)
+    public Task<PagedResponse<ProductResponseDto>> GetMine([FromQuery] ProductListQueryDto query, CancellationToken cancellationToken)
         => productService.GetMineAsync(CurrentUserId(), query, cancellationToken);
 
     [HttpGet("{id:guid}")]

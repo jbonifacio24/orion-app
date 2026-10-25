@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../../core/localization/app_localizations.dart';
 import '../../../../core/router/route_names.dart';
+import '../../../../core/widgets/app_loading.dart';
 import '../cubit/conversations_cubit.dart';
 import '../widgets/conversation_tile.dart';
 
@@ -62,7 +63,7 @@ class _ConversationsPageState extends State<ConversationsPage> {
   }
 
   Widget _content(BuildContext context, ConversationsState state) {
-    if (state.isInitialLoading && state.items.isEmpty) return const Center(child: CircularProgressIndicator());
+    if (state.isInitialLoading && state.items.isEmpty) return const AppLoading();
     if (state.failure != null && state.items.isEmpty) return _Failure(message: state.failure!, onRetry: context.read<ConversationsCubit>().load);
     if (state.items.isEmpty) return const Center(child: Text(AppLocalizations.noConversations));
     return RefreshIndicator(

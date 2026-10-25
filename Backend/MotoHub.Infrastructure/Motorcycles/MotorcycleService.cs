@@ -100,6 +100,18 @@ public sealed class MotorcycleService(MotoHubDbContext dbContext) : IMotorcycleS
     {
         var motorcycle = await QueryMine(userId, motorcycleId).SingleOrDefaultAsync(cancellationToken)
             ?? throw new ResourceNotFoundException("La motocicleta no existe.");
+        await DeleteMotorcycleAsync(motorcycle, userId, cancellationToken);
+    }
+
+    public async Task DeleteAsAdminAsync(Guid motorcycleId, CancellationToken cancellationToken)
+    {
+        var motorcycle = await dbContext.Motorcycles.SingleOrDefaultAsync(x => x.Id == motorcycleId, cancellationToken)
+            ?? throw new ResourceNotFoundException("La motocicleta no existe.");
+        await DeleteMotorcycleAsync(motorcycle, motorcycle.OwnerUserId, cancellationToken);
+    }
+
+    private async Task DeleteMotorcycleAsync(Motorcycle motorcycle, Guid ownerUserId, CancellationToken cancellationToken)
+    {
         await using var transaction = await BeginTransactionIfRelationalAsync(cancellationToken);
         var wasPrimary = motorcycle.IsPrimary;
         motorcycle.IsDeleted = true;
@@ -110,7 +122,7 @@ public sealed class MotorcycleService(MotoHubDbContext dbContext) : IMotorcycleS
         if (wasPrimary)
         {
             replacement = await dbContext.Motorcycles
-                .Where(x => x.OwnerUserId == userId && x.Id != motorcycleId)
+                .Where(x => x.OwnerUserId == ownerUserId && x.Id != motorcycle.Id)
                 .OrderBy(x => x.CreatedAt)
                 .ThenBy(x => x.Id)
                 .FirstOrDefaultAsync(cancellationToken);

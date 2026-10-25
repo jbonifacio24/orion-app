@@ -99,6 +99,23 @@ public sealed class TheftReportServiceTests
         Assert.Equal(resolvedAt, report.ResolvedAt);
     }
 
+    [Fact]
+    public async Task Delete_soft_deletes_report_and_rejects_missing_report()
+    {
+        await using var context = CreateContext();
+        var report = Report(TheftReportStatus.Reported);
+        context.TheftReports.Add(report);
+        await context.SaveChangesAsync();
+        var service = new TheftReportService(context);
+
+        await service.DeleteAsync(report.Id, default);
+
+        Assert.True(report.IsDeleted);
+        Assert.NotNull(report.DeletedAt);
+        Assert.False(await context.TheftReports.AnyAsync(item => item.Id == report.Id));
+        await Assert.ThrowsAsync<ResourceNotFoundException>(() => service.DeleteAsync(Guid.NewGuid(), default));
+    }
+
     private static CreateTheftReportRequestDto Request(Guid? motorcycleId = null, string? brand = "Yamaha", string? vin = "VIN-123")
         => new(motorcycleId, "Stolen motorcycle", "Description", "XYZ-987", vin, brand, "MT-07", "Blue", DateTimeOffset.UtcNow.AddMinutes(-1), "Madrid", 40.4168m, -3.7038m);
 

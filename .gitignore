@@ -19,6 +19,7 @@ frontend/ios/Pods/
 .env
 .env.*
 !.env.example
+frontend/lib/core/constants/environment_local.dart
 
 # IDE
 .vscode/

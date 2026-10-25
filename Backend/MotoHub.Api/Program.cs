@@ -9,12 +9,14 @@ using System.Text;
 using System.Threading.RateLimiting;
 using MotoHub.Infrastructure;
 using MotoHub.Infrastructure.Storage;
+using MotoHub.Infrastructure.Marketplace;
 using Microsoft.Extensions.FileProviders;
 using Microsoft.Extensions.Options;
 using MotoHub.Api.Hubs;
 using MotoHub.Api.Realtime;
 using MotoHub.Application.Chat;
 using MotoHub.Application;
+using MotoHub.Application.Marketplace;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -24,6 +26,7 @@ builder.Services.AddControllers();
 builder.Services.AddInfrastructure(builder.Configuration);
 builder.Services.AddSignalR();
 builder.Services.AddScoped<IChatRealtimeNotifier, SignalRChatRealtimeNotifier>();
+builder.Services.AddScoped<IDeliveryRealtimeNotifier, SignalRDeliveryRealtimeNotifier>();
 var jwtOptions = builder.Configuration.GetSection("Jwt").Get<JwtOptions>()
     ?? throw new InvalidOperationException("Jwt configuration is missing.");
 if (string.IsNullOrWhiteSpace(jwtOptions.SigningKey))
@@ -49,7 +52,8 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             OnMessageReceived = context =>
             {
                 if (string.IsNullOrEmpty(context.Token) &&
-                    context.Request.Path.StartsWithSegments("/hubs/chat"))
+                    (context.Request.Path.StartsWithSegments("/hubs/chat") ||
+                     context.Request.Path.StartsWithSegments("/hubs/delivery")))
                 {
                     var accessToken = context.Request.Query["access_token"].FirstOrDefault();
                     if (!string.IsNullOrWhiteSpace(accessToken))
@@ -101,7 +105,23 @@ builder.Services.AddSwaggerGen(options =>
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("Frontend", policy =>
-        policy.AllowAnyHeader().AllowAnyMethod().WithOrigins("http://localhost:3000"));
+    {
+        policy.AllowAnyHeader().AllowAnyMethod();
+        if (builder.Environment.IsDevelopment())
+        {
+            policy.SetIsOriginAllowed(origin =>
+                Uri.TryCreate(origin, UriKind.Absolute, out var uri) && uri.IsLoopback);
+            return;
+        }
+
+        policy.WithOrigins(
+            "http://localhost:3000",
+            "http://localhost:8080",
+            "http://localhost:64233",
+            "http://localhost:8081",
+            "http://127.0.0.1:8080",
+            "http://127.0.0.1:8081");
+    });
 });
 
 var app = builder.Build();
@@ -111,6 +131,7 @@ await using (var scope = app.Services.CreateAsyncScope())
     if (app.Environment.IsDevelopment())
     {
         await scope.ServiceProvider.GetRequiredService<DevelopmentUserSeeder>().SeedAsync();
+        await scope.ServiceProvider.GetRequiredService<ProductCategorySeeder>().SeedAsync(default);
     }
 
     await scope.ServiceProvider.GetRequiredService<AdminBootstrapper>().SeedAsync();
@@ -119,6 +140,7 @@ await using (var scope = app.Services.CreateAsyncScope())
 var imageStorageOptions = app.Services.GetRequiredService<IOptions<ProductImageStorageOptions>>().Value;
 var imageStorageRoot = Path.GetFullPath(Path.Combine(app.Environment.ContentRootPath, imageStorageOptions.StorageRoot));
 Directory.CreateDirectory(imageStorageRoot);
+app.UseCors("Frontend");
 app.UseStaticFiles(new StaticFileOptions
 {
     FileProvider = new PhysicalFileProvider(imageStorageRoot),
@@ -138,13 +160,13 @@ if (!app.Environment.IsDevelopment())
 {
     app.UseHttpsRedirection();
 }
-app.UseCors("Frontend");
 app.UseRateLimiter();
 app.UseAuthentication();
 app.UseMiddleware<OperationalUserMiddleware>();
 app.UseAuthorization();
 app.MapControllers();
 app.MapHub<ChatHub>("/hubs/chat");
+app.MapHub<DeliveryHub>("/hubs/delivery");
 app.MapGet("/health", () => Results.Ok(new { status = "ok" }));
 
 app.Run();

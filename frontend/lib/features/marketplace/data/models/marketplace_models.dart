@@ -37,7 +37,7 @@ List<ProductImageModel> _images(Object? value) => (value as List<dynamic>? ?? co
     .toList(growable: false);
 
 class ProductModel extends Product {
-  const ProductModel({required super.id, required super.categoryId, required super.name, required super.description, required super.price, required super.currency, required super.stockQuantity, required super.condition, required super.status, required super.location, required super.publishedAt, required super.createdAt, required super.rowVersion, required super.images});
+  const ProductModel({required super.id, required super.categoryId, required super.name, required super.description, required super.price, required super.currency, required super.stockQuantity, required super.condition, required super.status, required super.location, required super.latitude, required super.longitude, required super.paymentMethod, required super.publishedAt, required super.createdAt, required super.rowVersion, required super.images});
 
   factory ProductModel.fromJson(Map<String, dynamic> json) => ProductModel(
         id: json['id'] as String,
@@ -50,6 +50,9 @@ class ProductModel extends Product {
         condition: _condition(json['condition']),
         status: _status(json['status']),
         location: json['location'] as String?,
+        latitude: (json['latitude'] as num?)?.toDouble(),
+        longitude: (json['longitude'] as num?)?.toDouble(),
+        paymentMethod: json['paymentMethod'] as String?,
         publishedAt: DateTime.tryParse(json['publishedAt'] as String? ?? ''),
         createdAt: DateTime.tryParse(json['createdAt'] as String? ?? '') ?? DateTime.fromMillisecondsSinceEpoch(0, isUtc: true),
         rowVersion: json['rowVersion'] as String? ?? '',
@@ -72,18 +75,21 @@ class ProductCategoryModel extends ProductCategory {
 }
 
 class SellerSummaryModel extends SellerSummary {
-  const SellerSummaryModel({required super.id, required super.userName, required super.displayName, required super.profileImageUrl});
+  const SellerSummaryModel({required super.id, required super.userName, required super.displayName, required super.profileImageUrl, super.successfulSales, super.averageRating, super.ratingCount});
 
   factory SellerSummaryModel.fromJson(Map<String, dynamic> json) => SellerSummaryModel(
         id: json['id'] as String,
         userName: json['userName'] as String? ?? '',
         displayName: json['displayName'] as String?,
         profileImageUrl: json['profileImageUrl'] as String?,
+        successfulSales: json['successfulSales'] as int? ?? 0,
+        averageRating: (json['averageRating'] as num?)?.toDouble() ?? 0,
+        ratingCount: json['ratingCount'] as int? ?? 0,
       );
 }
 
 class ProductDetailModel extends ProductDetail {
-  const ProductDetailModel({required super.id, required super.categoryId, required super.name, required super.description, required super.price, required super.currency, required super.stockQuantity, required super.condition, required super.status, required super.location, required super.publishedAt, required super.createdAt, required super.rowVersion, required super.images, required super.category, required super.seller, required super.isFavorite, required super.isOwner});
+  const ProductDetailModel({required super.id, required super.categoryId, required super.name, required super.description, required super.price, required super.currency, required super.stockQuantity, required super.condition, required super.status, required super.location, required super.latitude, required super.longitude, required super.paymentMethod, required super.publishedAt, required super.createdAt, required super.rowVersion, required super.images, required super.category, required super.seller, required super.isFavorite, required super.isOwner});
 
   factory ProductDetailModel.fromJson(Map<String, dynamic> json) {
     final product = ProductModel.fromJson(json);
@@ -98,6 +104,9 @@ class ProductDetailModel extends ProductDetail {
       condition: product.condition,
       status: product.status,
       location: product.location,
+      latitude: product.latitude,
+      longitude: product.longitude,
+      paymentMethod: product.paymentMethod,
       publishedAt: product.publishedAt,
       createdAt: product.createdAt,
       rowVersion: product.rowVersion,
@@ -123,7 +132,7 @@ class PagedProductsModel extends PagedProducts {
 }
 
 class CreateProductRequestModel {
-  const CreateProductRequestModel({required this.categoryId, required this.name, required this.description, required this.price, required this.currency, required this.stockQuantity, required this.condition, required this.location});
+  const CreateProductRequestModel({required this.categoryId, required this.name, required this.description, required this.price, required this.currency, required this.stockQuantity, required this.condition, required this.location, this.latitude, this.longitude, this.paymentMethod});
   final String categoryId;
   final String name;
   final String description;
@@ -132,12 +141,15 @@ class CreateProductRequestModel {
   final int? stockQuantity;
   final ProductCondition condition;
   final String? location;
+  final double? latitude;
+  final double? longitude;
+  final String? paymentMethod;
 
-  Map<String, dynamic> toJson() => {'categoryId': categoryId, 'name': name, 'description': description, 'price': price, 'currency': currency, 'stockQuantity': stockQuantity, 'condition': condition.index, 'location': location};
+  Map<String, dynamic> toJson() => {'categoryId': categoryId, 'name': name, 'description': description, 'price': price, 'currency': currency, 'stockQuantity': stockQuantity, 'condition': condition.index, 'location': location, 'latitude': latitude, 'longitude': longitude, 'paymentMethod': paymentMethod};
 }
 
 class UpdateProductRequestModel extends CreateProductRequestModel {
-  const UpdateProductRequestModel({required super.categoryId, required super.name, required super.description, required super.price, required super.currency, required super.stockQuantity, required super.condition, required super.location, required this.expectedRowVersion});
+  const UpdateProductRequestModel({required super.categoryId, required super.name, required super.description, required super.price, required super.currency, required super.stockQuantity, required super.condition, required super.location, super.latitude, super.longitude, super.paymentMethod, required this.expectedRowVersion});
   final String expectedRowVersion;
 
   @override

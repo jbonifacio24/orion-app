@@ -1,5 +1,6 @@
 import '../entities/chat_entities.dart';
 import '../repositories/chat_repository.dart';
+import 'package:file_picker/file_picker.dart';
 
 class GetConversations {
   const GetConversations(this._repository);
@@ -29,4 +30,10 @@ class MarkConversationRead {
   const MarkConversationRead(this._repository);
   final ChatRepository _repository;
   Future<void> call(String conversationId) => _repository.markConversationRead(conversationId);
+}
+
+class SendChatAttachment {
+  const SendChatAttachment(this._repository);
+  final ChatRepository _repository;
+  Future<ChatMessage> call({required String conversationId, required PlatformFile file}) => _repository.sendAttachment(conversationId: conversationId, file: file);
 }

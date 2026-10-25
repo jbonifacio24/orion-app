@@ -38,27 +38,26 @@ public sealed class WorkshopService(MotoHubDbContext dbContext) : IWorkshopServi
             workshops = workshops.Where(workshop => workshop.City != null && workshop.City.Contains(city));
         }
 
-        var projected = workshops.Select(workshop => new WorkshopListItemDto(
-            workshop.Id,
-            workshop.Name,
-            workshop.Description,
-            workshop.Address,
-            workshop.City,
-            workshop.Latitude,
-            workshop.Longitude,
-            dbContext.WorkshopReviews
-                .Where(review => review.WorkshopId == workshop.Id)
-                .Where(review => review.Status == ReviewStatus.Published)
-                .Select(review => (decimal?)review.Rating)
-                .Average(),
-            dbContext.WorkshopReviews.Count(review => review.WorkshopId == workshop.Id && review.Status == ReviewStatus.Published)));
-
-        var totalCount = await projected.CountAsync(cancellationToken);
-        var items = await projected
+        var totalCount = await workshops.CountAsync(cancellationToken);
+        var items = await workshops
             .OrderBy(workshop => workshop.Name)
             .ThenBy(workshop => workshop.Id)
             .Skip((query.Page - 1) * pageSize)
             .Take(pageSize)
+            .Select(workshop => new WorkshopListItemDto(
+                workshop.Id,
+                workshop.Name,
+                workshop.Description,
+                workshop.Address,
+                workshop.City,
+                workshop.Latitude,
+                workshop.Longitude,
+                dbContext.WorkshopReviews
+                    .Where(review => review.WorkshopId == workshop.Id)
+                    .Where(review => review.Status == ReviewStatus.Published)
+                    .Select(review => (decimal?)review.Rating)
+                    .Average(),
+                dbContext.WorkshopReviews.Count(review => review.WorkshopId == workshop.Id && review.Status == ReviewStatus.Published)))
             .ToListAsync(cancellationToken);
         var totalPages = totalCount == 0 ? 0 : (int)Math.Ceiling(totalCount / (double)pageSize);
 
@@ -115,6 +114,14 @@ public sealed class WorkshopService(MotoHubDbContext dbContext) : IWorkshopServi
             ?? throw new ResourceNotFoundException("El taller no existe.");
 
         return new WorkshopDetailResponseDto(workshop.Id, workshop.Name, workshop.Description, workshop.PhoneNumber, workshop.Email, workshop.Address, workshop.City, workshop.Latitude, workshop.Longitude, workshop.VerifiedAt, workshop.Schedules, workshop.Services, workshop.Reviews, workshop.AverageRating, workshop.ReviewCount);
+    }
+
+    public async Task DeleteWorkshopAsync(Guid workshopId, CancellationToken cancellationToken)
+    {
+        var workshop = await dbContext.Workshops.SingleOrDefaultAsync(x => x.Id == workshopId, cancellationToken)
+            ?? throw new ResourceNotFoundException("El taller no existe.");
+        workshop.IsDeleted = true;
+        await dbContext.SaveChangesAsync(cancellationToken);
     }
 
     private static void ValidateQuery(WorkshopListQueryDto query)

@@ -131,4 +131,12 @@ abstract final class AppLocalizations {
   static String newsNotFound(Locale locale) => locale.languageCode == 'en' ? 'News could not be found.' : 'No se pudo encontrar la noticia.';
   static String newsSummary(Locale locale) => locale.languageCode == 'en' ? 'Summary' : 'Resumen';
   static String newsContent(Locale locale) => locale.languageCode == 'en' ? 'Content' : 'Contenido';
+  static String newsCreate(Locale locale) => locale.languageCode == 'en' ? 'Create news' : 'Añadir noticia';
+  static String newsTitleField(Locale locale) => locale.languageCode == 'en' ? 'Title' : 'Título';
+  static String newsSummaryField(Locale locale) => locale.languageCode == 'en' ? 'Summary' : 'Resumen';
+  static String newsContentField(Locale locale) => locale.languageCode == 'en' ? 'Content' : 'Contenido';
+  static String newsImageField(Locale locale) => locale.languageCode == 'en' ? 'Featured image URL (optional)' : 'URL de imagen (opcional)';
+  static String newsTitleRequired(Locale locale) => locale.languageCode == 'en' ? 'Title is required.' : 'El título es obligatorio.';
+  static String newsContentRequired(Locale locale) => locale.languageCode == 'en' ? 'Content is required.' : 'El contenido es obligatorio.';
+  static String newsPublish(Locale locale) => locale.languageCode == 'en' ? 'Publish news' : 'Publicar noticia';
 }

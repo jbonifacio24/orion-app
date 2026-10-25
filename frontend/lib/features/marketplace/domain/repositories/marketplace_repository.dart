@@ -10,8 +10,8 @@ abstract interface class MarketplaceRepository {
   Future<PagedProducts> getProducts(ProductFilters filters, {int page = 1});
   Future<ProductDetail> getProduct(String id);
   Future<PagedProducts> getMyProducts(ProductFilters filters, {int page = 1});
-  Future<Product> createProduct({required String categoryId, required String name, required String description, double? price, String? currency, int? stockQuantity, required ProductCondition condition, String? location});
-  Future<Product> updateProduct({required String id, required String categoryId, required String name, required String description, double? price, String? currency, int? stockQuantity, required ProductCondition condition, String? location, required String expectedRowVersion});
+  Future<Product> createProduct({required String categoryId, required String name, required String description, double? price, String? currency, int? stockQuantity, required ProductCondition condition, String? location, double? latitude, double? longitude, String? paymentMethod});
+  Future<Product> updateProduct({required String id, required String categoryId, required String name, required String description, double? price, String? currency, int? stockQuantity, required ProductCondition condition, String? location, double? latitude, double? longitude, String? paymentMethod, required String expectedRowVersion});
   Future<void> deleteProduct(String id);
   Future<List<ProductCategory>> getCategories();
   Future<List<Product>> getFavorites();

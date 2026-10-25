@@ -220,6 +220,70 @@ public sealed class SecurityAuthorizationEndpointTests : IClassFixture<ApiFactor
     }
 
     [Fact]
+    public async Task Only_admin_can_delete_theft_report()
+    {
+        var reporter = await SeedUserAsync();
+        var member = await SeedUserAsync();
+        var admin = await SeedUserAsync(roles: [AdminSecurity.AdminRole]);
+        var reportId = await SeedTheftReportAsync(reporter.Id);
+        var anonymousResponse = await factory.CreateClient().DeleteAsync($"/api/theft-reports/{reportId}");
+        var memberResponse = await CreateAuthenticatedClient(member.Id).DeleteAsync($"/api/theft-reports/{reportId}");
+        var adminResponse = await CreateAuthenticatedClient(admin.Id, AdminSecurity.AdminRole).DeleteAsync($"/api/theft-reports/{reportId}");
+
+        Assert.Equal(HttpStatusCode.Unauthorized, anonymousResponse.StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, memberResponse.StatusCode);
+        Assert.Equal(HttpStatusCode.NoContent, adminResponse.StatusCode);
+        await using var scope = factory.Services.CreateAsyncScope();
+        var context = scope.ServiceProvider.GetRequiredService<MotoHubDbContext>();
+        var report = await context.TheftReports.IgnoreQueryFilters().SingleAsync(item => item.Id == reportId);
+        Assert.True(report.IsDeleted);
+        Assert.NotNull(report.DeletedAt);
+    }
+
+    [Fact]
+    public async Task Only_admin_can_delete_workshops_and_travel_routes()
+    {
+        var owner = await SeedUserAsync();
+        var member = await SeedUserAsync();
+        var admin = await SeedUserAsync(roles: [AdminSecurity.AdminRole]);
+        var workshopId = await SeedWorkshopAsync(owner.Id);
+        var routeId = await SeedTravelRouteAsync(owner.Id);
+        var motorcycleId = await SeedMotorcycleAsync(owner.Id);
+
+        var anonymousWorkshop = await factory.CreateClient().DeleteAsync($"/api/workshops/{workshopId}");
+        var memberWorkshop = await CreateAuthenticatedClient(member.Id).DeleteAsync($"/api/workshops/{workshopId}");
+        var adminWorkshop = await CreateAuthenticatedClient(admin.Id, AdminSecurity.AdminRole).DeleteAsync($"/api/workshops/{workshopId}");
+        var anonymousRoute = await factory.CreateClient().DeleteAsync($"/api/travel-routes/{routeId}");
+        var memberRoute = await CreateAuthenticatedClient(member.Id).DeleteAsync($"/api/travel-routes/{routeId}");
+        var adminRoute = await CreateAuthenticatedClient(admin.Id, AdminSecurity.AdminRole).DeleteAsync($"/api/travel-routes/{routeId}");
+        var anonymousMotorcycle = await factory.CreateClient().DeleteAsync($"/api/motorcycles/{motorcycleId}/admin");
+        var memberMotorcycle = await CreateAuthenticatedClient(member.Id).DeleteAsync($"/api/motorcycles/{motorcycleId}/admin");
+        var adminMotorcycle = await CreateAuthenticatedClient(admin.Id, AdminSecurity.AdminRole).DeleteAsync($"/api/motorcycles/{motorcycleId}/admin");
+
+        Assert.Equal(HttpStatusCode.Unauthorized, anonymousWorkshop.StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, memberWorkshop.StatusCode);
+        Assert.Equal(HttpStatusCode.NoContent, adminWorkshop.StatusCode);
+        Assert.Equal(HttpStatusCode.Unauthorized, anonymousRoute.StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, memberRoute.StatusCode);
+        Assert.Equal(HttpStatusCode.NoContent, adminRoute.StatusCode);
+        Assert.Equal(HttpStatusCode.Unauthorized, anonymousMotorcycle.StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, memberMotorcycle.StatusCode);
+        Assert.Equal(HttpStatusCode.NoContent, adminMotorcycle.StatusCode);
+        await using var scope = factory.Services.CreateAsyncScope();
+        var context = scope.ServiceProvider.GetRequiredService<MotoHubDbContext>();
+        var workshop = await context.Workshops.IgnoreQueryFilters().SingleAsync(item => item.Id == workshopId);
+        var route = await context.TravelRoutes.IgnoreQueryFilters().SingleAsync(item => item.Id == routeId);
+        var motorcycle = await context.Motorcycles.IgnoreQueryFilters().SingleAsync(item => item.Id == motorcycleId);
+        Assert.True(workshop.IsDeleted);
+        Assert.NotNull(workshop.DeletedAt);
+        Assert.True(route.IsDeleted);
+        Assert.NotNull(route.DeletedAt);
+        Assert.False(route.IsPublished);
+        Assert.True(motorcycle.IsDeleted);
+        Assert.NotNull(motorcycle.DeletedAt);
+    }
+
+    [Fact]
     public async Task Stale_user_cannot_create_moderation_report()
     {
         var user = await SeedUserAsync(password: Password);
@@ -674,6 +738,48 @@ public sealed class SecurityAuthorizationEndpointTests : IClassFixture<ApiFactor
         context.TheftReports.Add(report);
         await context.SaveChangesAsync();
         return report.Id;
+    }
+
+    private async Task<Guid> SeedWorkshopAsync(Guid ownerUserId)
+    {
+        await using var scope = factory.Services.CreateAsyncScope();
+        var context = scope.ServiceProvider.GetRequiredService<MotoHubDbContext>();
+        var workshop = new Workshop { OwnerUserId = ownerUserId, Name = "Admin delete workshop", Status = WorkshopStatus.Active };
+        context.Workshops.Add(workshop);
+        await context.SaveChangesAsync();
+        return workshop.Id;
+    }
+
+    private async Task<Guid> SeedTravelRouteAsync(Guid createdByUserId)
+    {
+        await using var scope = factory.Services.CreateAsyncScope();
+        var context = scope.ServiceProvider.GetRequiredService<MotoHubDbContext>();
+        var conversation = new Conversation { Type = ConversationType.Group, Title = "Admin delete route" };
+        var route = new TravelRoute
+        {
+            CreatedByUserId = createdByUserId,
+            Title = "Admin delete route",
+            StartName = "Start",
+            EndName = "End",
+            PathJson = "[]",
+            DepartureAt = DateTimeOffset.UtcNow.AddDays(1),
+            IsPublished = true,
+            ConversationId = conversation.Id,
+            Conversation = conversation
+        };
+        context.TravelRoutes.Add(route);
+        await context.SaveChangesAsync();
+        return route.Id;
+    }
+
+    private async Task<Guid> SeedMotorcycleAsync(Guid ownerUserId)
+    {
+        await using var scope = factory.Services.CreateAsyncScope();
+        var context = scope.ServiceProvider.GetRequiredService<MotoHubDbContext>();
+        var motorcycle = new Motorcycle { OwnerUserId = ownerUserId, Brand = "Honda", Model = "CB", Year = 2020, IsPrimary = true };
+        context.Motorcycles.Add(motorcycle);
+        await context.SaveChangesAsync();
+        return motorcycle.Id;
     }
 
     private async Task SeedNotificationAsync(Guid recipientUserId)

@@ -129,10 +129,76 @@ public sealed class Product : SoftDeletableEntity
     public ProductCondition Condition { get; set; }
     public ProductStatus Status { get; set; }
     public string? Location { get; set; }
+    public decimal? Latitude { get; set; }
+    public decimal? Longitude { get; set; }
+    public string? PaymentMethod { get; set; }
     public DateTimeOffset? PublishedAt { get; set; }
     public User Seller { get; set; } = null!;
     public ProductCategory Category { get; set; } = null!;
     public ICollection<ProductImage> Images { get; set; } = [];
+    public ICollection<ProductTransaction> Transactions { get; set; } = [];
+}
+
+public sealed class ProductTransaction : Entity
+{
+    public Guid ProductId { get; set; }
+    public Guid SellerUserId { get; set; }
+    public Guid BuyerUserId { get; set; }
+    public decimal OfferedAmount { get; set; }
+    public string Currency { get; set; } = string.Empty;
+    public string PaymentMethod { get; set; } = string.Empty;
+    public ProductTransactionStatus Status { get; set; }
+    public DateTimeOffset? AcceptedAt { get; set; }
+    public DateTimeOffset? PaidAt { get; set; }
+    public DateTimeOffset? DeliveredAt { get; set; }
+    public DateTimeOffset? CompletedAt { get; set; }
+    public DateTimeOffset? CancelledAt { get; set; }
+    public string? CancellationReason { get; set; }
+    public Product Product { get; set; } = null!;
+    public User Seller { get; set; } = null!;
+    public User Buyer { get; set; } = null!;
+    public ICollection<ProductTransactionReview> Reviews { get; set; } = [];
+    public Delivery? Delivery { get; set; }
+}
+
+public sealed class Delivery : Entity
+{
+    public Guid ProductTransactionId { get; set; }
+    public Guid BuyerUserId { get; set; }
+    public Guid SellerUserId { get; set; }
+    public Guid? DriverUserId { get; set; }
+    public decimal? PickupLatitude { get; set; }
+    public decimal? PickupLongitude { get; set; }
+    public decimal DestinationLatitude { get; set; }
+    public decimal DestinationLongitude { get; set; }
+    public decimal? DriverLatitude { get; set; }
+    public decimal? DriverLongitude { get; set; }
+    public DeliveryStatus Status { get; set; } = DeliveryStatus.Requested;
+    public ProductTransaction ProductTransaction { get; set; } = null!;
+    public User Buyer { get; set; } = null!;
+    public User Seller { get; set; } = null!;
+    public User? Driver { get; set; }
+}
+
+public sealed class DeliveryDriverProfile : Entity
+{
+    public Guid UserId { get; set; }
+    public decimal Latitude { get; set; }
+    public decimal Longitude { get; set; }
+    public bool IsAvailable { get; set; }
+    public User User { get; set; } = null!;
+}
+
+public sealed class ProductTransactionReview : Entity
+{
+    public Guid ProductTransactionId { get; set; }
+    public Guid ReviewerUserId { get; set; }
+    public Guid ReviewedUserId { get; set; }
+    public int Rating { get; set; }
+    public string? Comment { get; set; }
+    public ProductTransaction Transaction { get; set; } = null!;
+    public User Reviewer { get; set; } = null!;
+    public User ReviewedUser { get; set; } = null!;
 }
 
 public sealed class ProductImage : Entity
@@ -524,4 +590,23 @@ public sealed class AuditLog
     public string? CorrelationId { get; set; }
     public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.UtcNow;
     public User? ActorUser { get; set; }
+}
+
+public sealed class TravelRoute : SoftDeletableEntity
+{
+    public Guid CreatedByUserId { get; set; }
+    public string Title { get; set; } = string.Empty;
+    public string? Description { get; set; }
+    public string StartName { get; set; } = string.Empty;
+    public string EndName { get; set; } = string.Empty;
+    public decimal StartLatitude { get; set; }
+    public decimal StartLongitude { get; set; }
+    public decimal EndLatitude { get; set; }
+    public decimal EndLongitude { get; set; }
+    public string PathJson { get; set; } = "[]";
+    public DateTimeOffset DepartureAt { get; set; }
+    public bool IsPublished { get; set; }
+    public Guid ConversationId { get; set; }
+    public User CreatedByUser { get; set; } = null!;
+    public Conversation Conversation { get; set; } = null!;
 }

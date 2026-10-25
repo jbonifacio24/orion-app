@@ -25,14 +25,20 @@ public sealed class ProductService(MotoHubDbContext dbContext) : IProductService
             .Include(x => x.Images)
             .Include(x => x.Category)
             .Include(x => x.Seller)
-            .Where(x => x.Id == productId && x.Status == ProductStatus.Active && x.Category.IsActive)
+            .Where(x => x.Id == productId && (x.Status == ProductStatus.Active || (x.Status == ProductStatus.Sold && x.SellerUserId == userId)) && x.Category.IsActive)
             .SingleOrDefaultAsync(cancellationToken)
             ?? throw new ResourceNotFoundException("El producto no existe.");
 
         var isFavorite = await dbContext.ProductFavorites.AnyAsync(
             x => x.UserId == userId && x.ProductId == productId,
             cancellationToken);
-        return ToDetailDto(product, userId, isFavorite);
+        var successfulSales = await dbContext.ProductTransactions.CountAsync(
+            x => x.SellerUserId == product.SellerUserId && x.Status == ProductTransactionStatus.Completed,
+            cancellationToken);
+        var sellerRatings = dbContext.ProductTransactionReviews.Where(x => x.ReviewedUserId == product.SellerUserId).Select(x => (decimal?)x.Rating);
+        var averageRating = await sellerRatings.AverageAsync(cancellationToken) ?? 0;
+        var ratingCount = await sellerRatings.CountAsync(cancellationToken);
+        return ToDetailDto(product, userId, isFavorite, successfulSales, averageRating, ratingCount);
     }
 
     public async Task<PagedResponse<ProductResponseDto>> GetMineAsync(Guid userId, ProductListQueryDto query, CancellationToken cancellationToken)
@@ -47,7 +53,7 @@ public sealed class ProductService(MotoHubDbContext dbContext) : IProductService
 
     public async Task<ProductResponseDto> CreateAsync(Guid userId, CreateProductRequestDto request, CancellationToken cancellationToken)
     {
-        var normalized = await ValidateAndNormalizeAsync(request.CategoryId, request.Name, request.Description, request.Price, request.Currency, request.StockQuantity, request.Condition, request.Location, cancellationToken);
+        var normalized = await ValidateAndNormalizeAsync(request.CategoryId, request.Name, request.Description, request.Price, request.Currency, request.StockQuantity, request.Condition, request.Location, request.Latitude, request.Longitude, request.PaymentMethod, cancellationToken);
         var product = new Product
         {
             SellerUserId = userId,
@@ -60,6 +66,9 @@ public sealed class ProductService(MotoHubDbContext dbContext) : IProductService
             Condition = request.Condition,
             Status = ProductStatus.Active,
             Location = normalized.Location,
+            Latitude = normalized.Latitude,
+            Longitude = normalized.Longitude,
+            PaymentMethod = normalized.PaymentMethod,
             PublishedAt = DateTimeOffset.UtcNow
         };
         dbContext.Products.Add(product);
@@ -78,7 +87,7 @@ public sealed class ProductService(MotoHubDbContext dbContext) : IProductService
         {
             throw new ConflictException("El producto fue modificado por otro usuario.");
         }
-        var normalized = await ValidateAndNormalizeAsync(request.CategoryId, request.Name, request.Description, request.Price, request.Currency, request.StockQuantity, request.Condition, request.Location, cancellationToken);
+        var normalized = await ValidateAndNormalizeAsync(request.CategoryId, request.Name, request.Description, request.Price, request.Currency, request.StockQuantity, request.Condition, request.Location, request.Latitude, request.Longitude, request.PaymentMethod, cancellationToken);
 
         product.CategoryId = request.CategoryId;
         product.Name = normalized.Name;
@@ -88,6 +97,9 @@ public sealed class ProductService(MotoHubDbContext dbContext) : IProductService
         product.StockQuantity = normalized.StockQuantity;
         product.Condition = request.Condition;
         product.Location = normalized.Location;
+        product.Latitude = normalized.Latitude;
+        product.Longitude = normalized.Longitude;
+        product.PaymentMethod = normalized.PaymentMethod;
         await SaveAsync(cancellationToken);
         return ToDto(product);
     }
@@ -147,8 +159,8 @@ public sealed class ProductService(MotoHubDbContext dbContext) : IProductService
             _ => throw new ValidationException("Sort no es válido.")
         };
 
-    private async Task<(string Name, string Description, decimal? Price, string? Currency, int? StockQuantity, string? Location)> ValidateAndNormalizeAsync(
-        Guid categoryId, string name, string description, decimal? price, string? currency, int? stockQuantity, ProductCondition condition, string? location, CancellationToken cancellationToken)
+    private async Task<(string Name, string Description, decimal? Price, string? Currency, int? StockQuantity, string? Location, decimal? Latitude, decimal? Longitude, string? PaymentMethod)> ValidateAndNormalizeAsync(
+        Guid categoryId, string name, string description, decimal? price, string? currency, int? stockQuantity, ProductCondition condition, string? location, decimal? latitude, decimal? longitude, string? paymentMethod, CancellationToken cancellationToken)
     {
         var normalizedName = name?.Trim() ?? string.Empty;
         var normalizedDescription = description?.Trim() ?? string.Empty;
@@ -158,12 +170,15 @@ public sealed class ProductService(MotoHubDbContext dbContext) : IProductService
         if (price is < 0 || (price.HasValue && decimal.Round(price.Value, 2) != price.Value)) throw new ValidationException("Price debe ser mayor o igual que cero y tener como máximo dos decimales.");
         if (stockQuantity is < 0) throw new ValidationException("StockQuantity debe ser mayor o igual que cero.");
         if (normalizedLocation?.Length > 500) throw new ValidationException("Location no puede superar 500 caracteres.");
+        if (latitude is < -90 or > 90 || longitude is < -180 or > 180 || (latitude.HasValue != longitude.HasValue)) throw new ValidationException("Latitude y Longitude deben estar ambas presentes y dentro de sus rangos.");
         if (!Enum.IsDefined(typeof(ProductCondition), condition)) throw new ValidationException("Condition no es válido.");
         var normalizedCurrency = price.HasValue ? currency?.Trim().ToUpperInvariant() : null;
         if (price.HasValue && (string.IsNullOrWhiteSpace(normalizedCurrency) || normalizedCurrency.Length != 3 || normalizedCurrency.Any(character => !char.IsLetter(character)))) throw new ValidationException("Currency es obligatorio y debe tener tres letras cuando Price tiene valor.");
         var categoryExists = await dbContext.ProductCategories.AnyAsync(x => x.Id == categoryId && x.IsActive, cancellationToken);
         if (!categoryExists) throw new ValidationException("CategoryId debe corresponder a una categoría activa.");
-        return (normalizedName, normalizedDescription, price, normalizedCurrency, stockQuantity, normalizedLocation);
+        var normalizedPaymentMethod = string.IsNullOrWhiteSpace(paymentMethod) ? null : paymentMethod.Trim();
+        if (normalizedPaymentMethod?.Length > 50) throw new ValidationException("PaymentMethod no puede superar 50 caracteres.");
+        return (normalizedName, normalizedDescription, price, normalizedCurrency, stockQuantity, normalizedLocation, latitude, longitude, normalizedPaymentMethod);
     }
 
     private static void ValidateQuery(ProductListQueryDto query)
@@ -189,14 +204,14 @@ public sealed class ProductService(MotoHubDbContext dbContext) : IProductService
 
     private static ProductResponseDto ToDto(Product product) => new(
         product.Id, product.CategoryId, product.Name, product.Description, product.Price, product.Currency, product.StockQuantity,
-        product.Condition, product.Status, product.Location, product.PublishedAt, product.CreatedAt, EncodeRowVersion(product.RowVersion), ToImages(product));
+        product.Condition, product.Status, product.Location, product.PublishedAt, product.CreatedAt, EncodeRowVersion(product.RowVersion), ToImages(product), product.Latitude, product.Longitude, product.PaymentMethod);
 
-    private static ProductDetailResponseDto ToDetailDto(Product product, Guid userId, bool isFavorite) => new(
+    private static ProductDetailResponseDto ToDetailDto(Product product, Guid userId, bool isFavorite, int successfulSales, decimal averageRating, int ratingCount) => new(
         product.Id, product.CategoryId, product.Name, product.Description, product.Price, product.Currency, product.StockQuantity,
         product.Condition, product.Status, product.Location, product.PublishedAt, product.CreatedAt, EncodeRowVersion(product.RowVersion),
         new ProductCategoryResponseDto(product.Category.Id, product.Category.ParentCategoryId, product.Category.Name, product.Category.Slug, product.Category.Description, product.Category.DisplayOrder, product.Category.IsActive),
-        new SellerSummaryDto(product.Seller.Id, product.Seller.UserName, DisplayName(product.Seller), product.Seller.ProfileImageUrl),
-        ToImages(product), isFavorite, product.SellerUserId == userId);
+        new SellerSummaryDto(product.Seller.Id, product.Seller.UserName, DisplayName(product.Seller), product.Seller.ProfileImageUrl, successfulSales, decimal.Round(averageRating, 1), ratingCount),
+        ToImages(product), isFavorite, product.SellerUserId == userId, product.Latitude, product.Longitude, product.PaymentMethod);
 
     private static string EncodeRowVersion(byte[] rowVersion) => Convert.ToBase64String(rowVersion);
 

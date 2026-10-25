@@ -85,6 +85,10 @@ class _FakeNewsRepository implements NewsRepository {
   Future<NewsDetail> getNewsDetail(String newsId) => Future.error(UnsupportedError('Not used in presentation tests'));
 
   @override
+  Future<NewsDetail> createNews({required String title, String? summary, required String content, String? featuredImageUrl}) =>
+      Future.error(UnsupportedError('Not used in presentation tests'));
+
+  @override
   Future<List<NewsCategory>> getNewsCategories() => Future.value(const [NewsCategory(id: 'cat-1', name: 'Rutas', slug: 'rutas')]);
 
   @override

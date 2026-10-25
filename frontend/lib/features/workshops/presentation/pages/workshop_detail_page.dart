@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/localization/app_localizations.dart';
+import '../../../../core/widgets/app_loading.dart';
 import '../../domain/entities/workshop_detail.dart';
 import '../cubit/workshop_detail_cubit.dart';
 import '../widgets/workshop_location.dart';
@@ -29,7 +30,7 @@ class _WorkshopDetailPageState extends State<WorkshopDetailPage> {
     return Scaffold(
       appBar: AppBar(title: const Text(AppLocalizations.workshopDetail)),
       body: switch (state) {
-        WorkshopDetailInitial() || WorkshopDetailLoading() => const Center(child: CircularProgressIndicator()),
+        WorkshopDetailInitial() || WorkshopDetailLoading() => const AppLoading(),
         WorkshopDetailFailure(:final message, :final workshop) => workshop == null ? _Failure(message: message, onRetry: context.read<WorkshopDetailCubit>().retry) : _Content(workshop: workshop),
         WorkshopDetailLoaded(:final workshop) => _Content(workshop: workshop),
       },

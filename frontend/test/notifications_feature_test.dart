@@ -267,7 +267,7 @@ class _NotificationsAdapter implements HttpClientAdapter {
 
   @override
   Future<ResponseBody> fetch(RequestOptions options, Stream<Uint8List>? requestStream, Future<void>? cancelFuture) async {
-    if (options.path == '/api/notifications') {
+    if (options.path == '/notifications') {
       expect(options.queryParameters['page'], 1);
       expect(options.queryParameters['unreadOnly'], true);
       expect(options.queryParameters['type'], 5);
@@ -279,12 +279,12 @@ class _NotificationsAdapter implements HttpClientAdapter {
         'totalPages': 1,
       });
     }
-    if (options.path == '/api/notifications/unread-count') return _jsonResponse({'count': 1});
-    if (options.path == '/api/notifications/notification-1/read') {
+    if (options.path == '/notifications/unread-count') return _jsonResponse({'count': 1});
+    if (options.path == '/notifications/notification-1/read') {
       readCalls++;
       return ResponseBody(const Stream<Uint8List>.empty(), 204);
     }
-    if (options.path == '/api/notifications/read-all') {
+    if (options.path == '/notifications/read-all') {
       readAllCalls++;
       return ResponseBody(const Stream<Uint8List>.empty(), 204);
     }

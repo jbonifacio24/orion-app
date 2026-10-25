@@ -15,7 +15,8 @@ class AuthDataSource {
     String? firstName,
     String? lastName,
   }) async {
-    final response = await _dio.post<Map<String, dynamic>>('/auth/register', data: {
+    final response =
+        await _dio.post<Map<String, dynamic>>('/auth/register', data: {
       'email': email,
       'userName': userName,
       'password': password,
@@ -26,11 +27,22 @@ class AuthDataSource {
     return AuthResponseModel.fromJson(response.data!);
   }
 
-  Future<AuthResponseModel> login(String emailOrUserName, String password) async {
-    final response = await _dio.post<Map<String, dynamic>>('/auth/login', data: {
+  Future<AuthResponseModel> login(
+      String emailOrUserName, String password) async {
+    final response =
+        await _dio.post<Map<String, dynamic>>('/auth/login', data: {
       'emailOrUserName': emailOrUserName,
       'password': password,
     });
+    return AuthResponseModel.fromJson(response.data!);
+  }
+
+  Future<AuthResponseModel> loginWithGoogle(String idToken) async {
+    final response = await _dio.post<Map<String, dynamic>>(
+      '/auth/google',
+      data: {'idToken': idToken},
+      options: Options(extra: {'skipAuth': true}),
+    );
     return AuthResponseModel.fromJson(response.data!);
   }
 
@@ -49,6 +61,11 @@ class AuthDataSource {
 
   Future<void> forgotPassword(String email) async {
     await _dio.post<void>('/auth/forgot-password', data: {'email': email});
+  }
+
+  Future<void> confirmEmail(String userId, String token) async {
+    await _dio.post<void>('/auth/confirm-email',
+        data: {'userId': userId, 'token': token});
   }
 
   Future<AuthUserModel> currentUser() async {

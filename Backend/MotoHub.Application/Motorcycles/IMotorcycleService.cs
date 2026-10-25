@@ -7,4 +7,5 @@ public interface IMotorcycleService
     Task<MotorcycleResponseDto> CreateAsync(Guid userId, CreateMotorcycleRequestDto request, CancellationToken cancellationToken);
     Task<MotorcycleResponseDto> UpdateAsync(Guid userId, Guid motorcycleId, UpdateMotorcycleRequestDto request, CancellationToken cancellationToken);
     Task DeleteAsync(Guid userId, Guid motorcycleId, CancellationToken cancellationToken);
+    Task DeleteAsAdminAsync(Guid motorcycleId, CancellationToken cancellationToken);
 }

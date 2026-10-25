@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../../../core/localization/app_localizations.dart';
 import '../../../../core/router/route_names.dart';
 import '../../../../core/widgets/app_loading.dart';
+import '../../../auth/presentation/cubit/auth_cubit.dart';
 import '../cubit/news_feed_cubit.dart';
 import '../cubit/news_feed_state.dart';
 import '../widgets/news_card.dart';
@@ -45,8 +46,25 @@ class _NewsFeedPageState extends State<NewsFeedPage> {
   @override
   Widget build(BuildContext context) {
     final locale = Localizations.localeOf(context);
+    var isAdmin = false;
+    try {
+      final authState = context.read<AuthCubit>().state;
+      isAdmin = authState is AuthAuthenticated && authState.user.roles.any((role) => role.toLowerCase() == 'admin');
+    } on ProviderNotFoundException {
+      isAdmin = false;
+    }
     return Scaffold(
-      appBar: AppBar(title: Text(AppLocalizations.newsTitle(locale))),
+      appBar: AppBar(
+        title: Text(AppLocalizations.newsTitle(locale)),
+        actions: [
+          if (isAdmin)
+            IconButton(
+              tooltip: AppLocalizations.newsCreate(locale),
+              onPressed: () => context.pushNamed(RouteNames.newsCreate),
+              icon: const Icon(Icons.add_circle_outline),
+            ),
+        ],
+      ),
       body: BlocBuilder<NewsFeedCubit, NewsFeedState>(
         builder: (context, state) => Column(
           children: [

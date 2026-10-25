@@ -3,13 +3,16 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../core/error/app_failure.dart';
 import '../../../../core/error/error_mapper.dart';
 import '../../domain/entities/motorcycle.dart';
+import '../../domain/entities/motorcycle_image_upload.dart';
+import '../../domain/repositories/motorcycle_image_repository.dart';
 import '../../domain/usecases/create_motorcycle.dart';
 import '../../domain/usecases/delete_motorcycle.dart';
+import '../../domain/usecases/delete_motorcycle_as_admin.dart';
 import '../../domain/usecases/get_motorcycle_by_id.dart';
 import '../../domain/usecases/get_motorcycles.dart';
 import '../../domain/usecases/update_motorcycle.dart';
 
-enum MotorcycleOperation { none, loading, creating, updating, deleting }
+enum MotorcycleOperation { none, loading, creating, updating, uploading, deleting }
 
 class MotorcycleState {
   const MotorcycleState({this.motorcycles = const [], this.selected, this.operation = MotorcycleOperation.none, this.message, this.syncWarning});
@@ -30,13 +33,15 @@ class MotorcycleState {
 }
 
 class MotorcycleCubit extends Cubit<MotorcycleState> {
-  MotorcycleCubit(this._getAll, this._getById, this._create, this._update, this._delete) : super(const MotorcycleState());
+  MotorcycleCubit(this._getAll, this._getById, this._create, this._update, this._delete, this._deleteAsAdmin, [this._repository]) : super(const MotorcycleState());
 
   final GetMotorcycles _getAll;
   final GetMotorcycleById _getById;
   final CreateMotorcycle _create;
   final UpdateMotorcycle _update;
   final DeleteMotorcycle _delete;
+  final DeleteMotorcycleAsAdmin _deleteAsAdmin;
+  final MotorcycleImageRepository? _repository;
   bool _mutating = false;
 
   Future<void> loadMotorcycles() async {
@@ -92,11 +97,19 @@ class MotorcycleCubit extends Cubit<MotorcycleState> {
   }
 
   Future<bool> delete(String id) async {
+    return _deleteWith(id, _delete.call);
+  }
+
+  Future<bool> deleteAsAdmin(String id) async {
+    return _deleteWith(id, _deleteAsAdmin.call);
+  }
+
+  Future<bool> _deleteWith(String id, Future<void> Function(String id) deleteAction) async {
     if (_mutating) return false;
     _mutating = true;
     emit(state.copyWith(operation: MotorcycleOperation.deleting, clearMessage: true));
     try {
-      await _delete(id);
+      await deleteAction(id);
       emit(state.copyWith(clearSelected: true, operation: MotorcycleOperation.none));
       await _refreshAfterMutation();
       return true;
@@ -105,6 +118,21 @@ class MotorcycleCubit extends Cubit<MotorcycleState> {
       return false;
     } finally {
       _mutating = false;
+    }
+  }
+
+  Future<bool> uploadImages(String id, List<MotorcycleImageUpload> images) async {
+    if (_repository == null || images.isEmpty) return true;
+    emit(state.copyWith(operation: MotorcycleOperation.uploading, clearMessage: true));
+    try {
+      for (final image in images) {
+        await _repository.uploadImage(id, image);
+      }
+      await _refreshAfterMutation();
+      return true;
+    } catch (error) {
+      emit(state.copyWith(operation: MotorcycleOperation.none, message: _message(error)));
+      return false;
     }
   }
 

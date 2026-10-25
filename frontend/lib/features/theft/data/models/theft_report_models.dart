@@ -19,6 +19,15 @@ DateTime _requiredDate(Map<String, dynamic> json, String key) {
 
 DateTime? _optionalDate(Map<String, dynamic> json, String key) => json[key] == null ? null : _requiredDate(json, key);
 
+TheftReportStatus _status(Map<String, dynamic> json) {
+  final value = json['status'];
+  if (value is String) return theftReportStatusFromJson(value);
+  if (value is num && value.toInt() >= 0 && value.toInt() < TheftReportStatus.values.length) {
+    return TheftReportStatus.values[value.toInt()];
+  }
+  throw const SerializationFailure('El campo status no es válido.');
+}
+
 class TheftReportModel extends TheftReport {
   const TheftReportModel({
     required super.id,
@@ -46,7 +55,7 @@ class TheftReportModel extends TheftReport {
         title: _requiredString(json, 'title'),
         description: _requiredString(json, 'description'),
         theftDate: _requiredDate(json, 'theftDate'),
-        status: theftReportStatusFromJson(_requiredString(json, 'status')),
+        status: _status(json),
         createdAt: _requiredDate(json, 'createdAt'),
         motorcycleId: json['motorcycleId'] as String?,
         brand: json['brand'] as String?,

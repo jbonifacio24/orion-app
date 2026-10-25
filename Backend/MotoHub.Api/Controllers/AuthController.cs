@@ -19,6 +19,11 @@ public sealed class AuthController(IAuthenticationService authenticationService)
     public async Task<ActionResult<AuthResponse>> Login(LoginRequest request, CancellationToken cancellationToken)
         => Ok(await authenticationService.LoginAsync(request, ClientIp(), cancellationToken));
 
+    [HttpPost("google")]
+    [EnableRateLimiting("auth")]
+    public async Task<ActionResult<AuthResponse>> LoginWithGoogle(GoogleLoginRequest request, CancellationToken cancellationToken)
+        => Ok(await authenticationService.LoginWithGoogleAsync(request, ClientIp(), cancellationToken));
+
     [HttpPost("refresh")]
     [EnableRateLimiting("auth")]
     public async Task<ActionResult<AuthResponse>> Refresh(RefreshTokenRequest request, CancellationToken cancellationToken)

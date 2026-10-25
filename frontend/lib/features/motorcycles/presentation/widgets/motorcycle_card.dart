@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../../core/network/media_url_resolver.dart';
 import '../../domain/entities/motorcycle.dart';
 
 String? motorcycleImageUrl(Motorcycle motorcycle) {
@@ -10,9 +11,10 @@ String? motorcycleImageUrl(Motorcycle motorcycle) {
 }
 
 class MotorcycleCard extends StatelessWidget {
-  const MotorcycleCard({required this.motorcycle, required this.onTap, super.key});
+  const MotorcycleCard({required this.motorcycle, required this.onTap, this.onDelete, super.key});
   final Motorcycle motorcycle;
   final VoidCallback onTap;
+  final VoidCallback? onDelete;
 
   @override
   Widget build(BuildContext context) => Card(
@@ -21,7 +23,7 @@ class MotorcycleCard extends StatelessWidget {
           onTap: onTap,
           child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
             AspectRatio(aspectRatio: 16 / 9, child: MotorcycleImagePreview(url: motorcycleImageUrl(motorcycle))),
-            ListTile(title: Text('${motorcycle.brand} ${motorcycle.model}'), subtitle: Text('${motorcycle.year}'), trailing: motorcycle.isPrimary ? const Chip(label: Text('Principal')) : null),
+            ListTile(title: Text('${motorcycle.brand} ${motorcycle.model}'), subtitle: Text('${motorcycle.year}'), trailing: Row(mainAxisSize: MainAxisSize.min, children: [if (motorcycle.isPrimary) const Chip(label: Text('Principal')), if (onDelete != null) IconButton(tooltip: 'Eliminar motocicleta', onPressed: onDelete, icon: const Icon(Icons.delete_outline))])),
           ]),
         ),
       );
@@ -34,5 +36,10 @@ class MotorcycleCard extends StatelessWidget {
       @override
       Widget build(BuildContext context) => url == null || url!.isEmpty
           ? const Center(child: Icon(Icons.two_wheeler, size: 56))
-          : Image.network(url!, fit: BoxFit.cover, errorBuilder: (_, __, ___) => const Center(child: Icon(Icons.two_wheeler, size: 56)));
+          : Image.network(
+              MediaUrlResolver.resolve(url!),
+              fit: BoxFit.cover,
+              loadingBuilder: (context, child, progress) => progress == null ? child : const Center(child: CircularProgressIndicator()),
+              errorBuilder: (_, __, ___) => const Center(child: Icon(Icons.two_wheeler, size: 56)),
+            );
     }

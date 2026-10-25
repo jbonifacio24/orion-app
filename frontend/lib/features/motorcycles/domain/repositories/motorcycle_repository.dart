@@ -27,4 +27,5 @@ abstract interface class MotorcycleRepository {
     required bool isPrimary,
   });
   Future<void> delete(String id);
+  Future<void> deleteAsAdmin(String id);
 }

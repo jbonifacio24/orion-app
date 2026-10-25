@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../../../core/network/media_url_resolver.dart';
 import '../../domain/entities/chat_entities.dart';
@@ -27,7 +28,15 @@ class MessageBubble extends StatelessWidget {
           children: [
             if (!isMine && message.senderProfileImageUrl != null)
               CircleAvatar(radius: 12, backgroundImage: NetworkImage(MediaUrlResolver.resolve(message.senderProfileImageUrl!))),
-            Text(message.content),
+            if (message.attachments.isEmpty) Text(message.content),
+            ...message.attachments.map((attachment) => Padding(
+                  padding: const EdgeInsets.only(top: 4),
+                  child: OutlinedButton.icon(
+                    onPressed: () => launchUrl(Uri.parse(MediaUrlResolver.resolve(attachment.url))),
+                    icon: Icon(attachment.contentType.startsWith('image/') ? Icons.image : Icons.graphic_eq),
+                    label: Text(attachment.fileName, overflow: TextOverflow.ellipsis),
+                  ),
+                )),
             const SizedBox(height: 3),
             Text(
               _time(message.sentAt),

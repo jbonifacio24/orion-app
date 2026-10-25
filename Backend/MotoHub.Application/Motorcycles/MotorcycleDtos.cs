@@ -7,6 +7,12 @@ public sealed record MotorcycleImageResponseDto(
     int DisplayOrder,
     bool IsPrimary);
 
+public sealed record UploadMotorcycleImageRequest(
+    Stream Content,
+    string FileName,
+    string? ContentType,
+    long Length);
+
 public sealed record MotorcycleResponseDto(
     Guid Id,
     string Brand,

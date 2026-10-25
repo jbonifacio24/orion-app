@@ -15,6 +15,63 @@ namespace MotoHub.Infrastructure.Tests;
 public sealed class AuthenticationSecurityTests
 {
     [Fact]
+    public async Task Google_login_links_a_verified_google_account_to_an_existing_test_user()
+    {
+        await using var provider = await CreateProviderAsync(
+            isActive: true,
+            new GoogleIdentity("google-subject", "security@example.com", true, "Security", "User"));
+        await using var scope = provider.CreateAsyncScope();
+        var authentication = scope.ServiceProvider.GetRequiredService<AuthenticationService>();
+        var userManager = scope.ServiceProvider.GetRequiredService<UserManager<MotoHubIdentityUser>>();
+
+        var result = await authentication.LoginWithGoogleAsync(new GoogleLoginRequest("valid-google-token"), null, default);
+
+        var linkedUser = await userManager.FindByLoginAsync("Google", "google-subject");
+        Assert.NotNull(linkedUser);
+        Assert.Equal("security@example.com", result.User.Email);
+        Assert.Equal(linkedUser.Id, result.User.Id);
+        Assert.True(await userManager.IsEmailConfirmedAsync(linkedUser));
+    }
+
+    [Fact]
+    public async Task Google_login_creates_a_profile_for_a_new_verified_google_user()
+    {
+        await using var provider = await CreateProviderAsync(
+            isActive: true,
+            new GoogleIdentity("new-google-subject", "new.user@example.com", true, "New", "Rider"));
+        await using var scope = provider.CreateAsyncScope();
+        var authentication = scope.ServiceProvider.GetRequiredService<AuthenticationService>();
+        var userManager = scope.ServiceProvider.GetRequiredService<UserManager<MotoHubIdentityUser>>();
+        var context = scope.ServiceProvider.GetRequiredService<MotoHubDbContext>();
+
+        var result = await authentication.LoginWithGoogleAsync(new GoogleLoginRequest("valid-google-token"), null, default);
+
+        var identityUser = await userManager.FindByLoginAsync("Google", "new-google-subject");
+        var profile = await context.Users.IgnoreQueryFilters().SingleAsync(x => x.Id == result.User.Id);
+        Assert.NotNull(identityUser);
+        Assert.False(await userManager.HasPasswordAsync(identityUser));
+        Assert.Equal("New", profile.FirstName);
+        Assert.Equal("Rider", profile.LastName);
+        Assert.True(profile.EmailConfirmed);
+        Assert.Contains("User", result.User.Roles);
+    }
+
+    [Fact]
+    public async Task Google_login_rejects_an_unverified_email()
+    {
+        await using var provider = await CreateProviderAsync(
+            isActive: true,
+            new GoogleIdentity("unverified-subject", "security@example.com", false, null, null));
+        await using var scope = provider.CreateAsyncScope();
+        var authentication = scope.ServiceProvider.GetRequiredService<AuthenticationService>();
+
+        var exception = await Assert.ThrowsAsync<AuthenticationException>(() =>
+            authentication.LoginWithGoogleAsync(new GoogleLoginRequest("valid-google-token"), null, default));
+
+        Assert.Equal(401, exception.StatusCode);
+    }
+
+    [Fact]
     public async Task Active_user_can_login_refresh_and_read_current_user()
     {
         await using var provider = await CreateProviderAsync(isActive: true);
@@ -79,7 +136,7 @@ public sealed class AuthenticationSecurityTests
         Assert.Equal(401, exception.StatusCode);
     }
 
-    private static async Task<ServiceProvider> CreateProviderAsync(bool isActive)
+    private static async Task<ServiceProvider> CreateProviderAsync(bool isActive, GoogleIdentity? googleIdentity = null)
     {
         var services = new ServiceCollection();
         services.AddLogging();
@@ -116,6 +173,8 @@ public sealed class AuthenticationSecurityTests
         services.AddScoped<JwtTokenService>();
         services.AddScoped<ISessionRevocationService, SessionRevocationService>();
         services.AddScoped<AuthenticationService>();
+        services.AddSingleton<IGoogleIdentityTokenValidator>(new StaticGoogleIdentityTokenValidator(
+            googleIdentity ?? new GoogleIdentity("google-subject", "security@example.com", true, "Security", "User")));
         services.AddSingleton<IEmailSender, NoOpEmailSender>();
 
         var provider = services.BuildServiceProvider(new ServiceProviderOptions { ValidateScopes = true });
@@ -149,4 +208,10 @@ public sealed class AuthenticationSecurityTests
         public Task SendAsync(string recipient, string subject, string body, CancellationToken cancellationToken)
             => Task.CompletedTask;
     }
+}
+
+internal sealed class StaticGoogleIdentityTokenValidator(GoogleIdentity identity) : IGoogleIdentityTokenValidator
+{
+    public Task<GoogleIdentity> ValidateAsync(string idToken, CancellationToken cancellationToken)
+        => Task.FromResult(identity);
 }

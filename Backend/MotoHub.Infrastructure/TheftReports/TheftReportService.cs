@@ -107,6 +107,16 @@ public sealed class TheftReportService(MotoHubDbContext dbContext) : ITheftRepor
         return ToDto(report);
     }
 
+    public async Task DeleteAsync(Guid reportId, CancellationToken cancellationToken)
+    {
+        var report = await dbContext.TheftReports
+            .SingleOrDefaultAsync(x => x.Id == reportId, cancellationToken)
+            ?? throw new ResourceNotFoundException("El reporte de robo no existe.");
+
+        report.IsDeleted = true;
+        await SaveAsync(cancellationToken);
+    }
+
     private static IQueryable<TheftReport> ApplyFilters(IQueryable<TheftReport> reports, TheftReportListQueryDto query)
     {
         if (query.Status.HasValue) reports = reports.Where(x => x.Status == query.Status.Value);

@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
 import '../../../../core/localization/app_localizations.dart';
+import '../../../../core/network/media_url_resolver.dart';
+import '../../../../core/widgets/app_loading.dart';
 import '../../domain/entities/community_post.dart';
 import '../../domain/entities/post_author.dart';
 
@@ -49,7 +51,7 @@ class CommunityPostCard extends StatelessWidget {
                 if (post.isOwner && isDeleting)
                   const Padding(
                     padding: EdgeInsets.all(12),
-                    child: SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)),
+                    child: AppLoading(compact: true),
                   )
                 else if (post.isOwner && onDelete != null)
                   IconButton(
@@ -64,7 +66,7 @@ class CommunityPostCard extends StatelessWidget {
             const SizedBox(height: 14),
             Row(children: [
               if (isLikeProcessing)
-                const SizedBox(width: 48, height: 48, child: Padding(padding: EdgeInsets.all(14), child: CircularProgressIndicator(strokeWidth: 2)))
+                const SizedBox(width: 48, height: 48, child: AppLoading(compact: true))
               else if (onLike == null)
                 Icon(
                   post.likedByCurrentUser ? Icons.favorite : Icons.favorite_border,
@@ -108,7 +110,7 @@ class CommunityAuthorAvatar extends StatelessWidget {
       : author.displayName.trim().substring(0, 1).toUpperCase();
     return CircleAvatar(
       radius: 22,
-      foregroundImage: imageUrl == null || imageUrl.isEmpty ? null : NetworkImage(imageUrl),
+      foregroundImage: imageUrl == null || imageUrl.isEmpty ? null : NetworkImage(MediaUrlResolver.resolve(imageUrl)),
       onForegroundImageError: imageUrl == null || imageUrl.isEmpty ? null : (_, __) {},
       child: Text(initials),
     );

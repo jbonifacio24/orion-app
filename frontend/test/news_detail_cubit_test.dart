@@ -114,6 +114,10 @@ class _DetailRepository implements NewsRepository {
   }
 
   @override
+  Future<NewsDetail> createNews({required String title, String? summary, required String content, String? featuredImageUrl}) =>
+      Future.error(UnsupportedError('Not used in detail tests'));
+
+  @override
   Future<PagedNews> getNewsFeed({required int page, required int pageSize, String? categoryId}) =>
       Future.error(UnsupportedError('Not used in detail tests'));
 }

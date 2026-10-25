@@ -2,6 +2,17 @@ enum ConversationType { direct, group, marketplace, unknown }
 
 enum ChatMessageType { text, image, file, system, unknown }
 
+class RouteLocation {
+  const RouteLocation({required this.conversationId, required this.userId, required this.displayName, required this.latitude, required this.longitude, required this.updatedAt});
+
+  final String conversationId;
+  final String userId;
+  final String displayName;
+  final double latitude;
+  final double longitude;
+  final DateTime updatedAt;
+}
+
 class ChatParticipant {
   const ChatParticipant({required this.userId, required this.displayName, this.profileImageUrl});
 
@@ -21,6 +32,7 @@ class ChatMessage {
     required this.messageType,
     required this.sentAt,
     required this.replyToMessageId,
+    this.attachments = const [],
   });
 
   final String id;
@@ -32,6 +44,16 @@ class ChatMessage {
   final ChatMessageType messageType;
   final DateTime sentAt;
   final String? replyToMessageId;
+  final List<ChatAttachment> attachments;
+}
+
+class ChatAttachment {
+  const ChatAttachment({required this.id, required this.url, required this.fileName, required this.contentType, required this.sizeBytes});
+  final String id;
+  final String url;
+  final String fileName;
+  final String contentType;
+  final int sizeBytes;
 }
 
 class Conversation {
@@ -43,6 +65,8 @@ class Conversation {
     required this.participant,
     required this.lastMessage,
     required this.unreadCount,
+    this.title,
+    this.participantCount = 0,
   });
 
   final String id;
@@ -52,6 +76,8 @@ class Conversation {
   final ChatParticipant participant;
   final ChatMessage? lastMessage;
   final int unreadCount;
+  final String? title;
+  final int participantCount;
 }
 
 class PagedMessages {

@@ -3,6 +3,8 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../core/localization/app_localizations.dart';
+import '../../../../core/widgets/app_loading.dart';
+import '../../../auth/presentation/cubit/auth_cubit.dart';
 import '../cubit/workshops_cubit.dart';
 import '../widgets/workshop_card.dart';
 import '../widgets/workshop_map_view.dart';
@@ -41,6 +43,7 @@ class _WorkshopsPageState extends State<WorkshopsPage> {
   @override
   Widget build(BuildContext context) {
     final state = context.watch<WorkshopsCubit>().state;
+    final isAdmin = context.select<AuthCubit?, bool>((cubit) => cubit?.state is AuthAuthenticated && (cubit!.state as AuthAuthenticated).user.roles.any((role) => role.toLowerCase() == 'admin'));
     return Scaffold(
       appBar: AppBar(title: const Text(AppLocalizations.workshops)),
       body: Column(children: [
@@ -60,13 +63,13 @@ class _WorkshopsPageState extends State<WorkshopsPage> {
             ),
           ),
         ),
-        Expanded(child: _buildContent(context, state)),
+        Expanded(child: _buildContent(context, state, isAdmin)),
       ]),
     );
   }
 
-  Widget _buildContent(BuildContext context, WorkshopsState state) {
-    if (state.isInitialLoading && state.items.isEmpty) return const Center(child: CircularProgressIndicator());
+  Widget _buildContent(BuildContext context, WorkshopsState state, bool isAdmin) {
+    if (state.isInitialLoading && state.items.isEmpty) return const AppLoading();
     if (state.failure != null && state.items.isEmpty) return _Failure(message: state.failure!, onRetry: context.read<WorkshopsCubit>().retry);
     if (_showMap) {
       return WorkshopMapView(
@@ -82,12 +85,19 @@ class _WorkshopsPageState extends State<WorkshopsPage> {
         padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
         itemCount: state.items.length + (state.isLoadingMore || state.loadingMoreFailure != null ? 1 : 0),
         itemBuilder: (context, index) {
-          if (index == state.items.length) return state.loadingMoreFailure != null ? _Failure(message: state.loadingMoreFailure!, onRetry: context.read<WorkshopsCubit>().retryLoadMore) : const Padding(padding: EdgeInsets.all(20), child: Center(child: CircularProgressIndicator()));
+          if (index == state.items.length) return state.loadingMoreFailure != null ? _Failure(message: state.loadingMoreFailure!, onRetry: context.read<WorkshopsCubit>().retryLoadMore) : const Padding(padding: EdgeInsets.all(20), child: AppLoading(compact: true));
           final workshop = state.items[index];
-          return Padding(padding: const EdgeInsets.only(bottom: 12), child: WorkshopCard(workshop: workshop, onTap: () => context.pushNamed('workshop-detail', pathParameters: {'id': workshop.id})));
+          return Padding(padding: const EdgeInsets.only(bottom: 12), child: WorkshopCard(workshop: workshop, onTap: () => context.pushNamed('workshop-detail', pathParameters: {'id': workshop.id}), onDelete: isAdmin ? () => _deleteWorkshop(context, workshop.id) : null));
         },
       ),
     );
+  }
+
+  Future<void> _deleteWorkshop(BuildContext context, String id) async {
+    final confirmed = await showDialog<bool>(context: context, builder: (context) => AlertDialog(title: const Text('¿Eliminar este taller?'), content: const Text('El taller dejará de aparecer en los resultados.'), actions: [TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancelar')), FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('Eliminar'))])) ?? false;
+    if (!confirmed || !context.mounted) return;
+    final deleted = await context.read<WorkshopsCubit>().delete(id);
+    if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(deleted ? 'Taller eliminado.' : context.read<WorkshopsCubit>().state.failure ?? 'No se pudo eliminar el taller.')));
   }
 }
 

@@ -224,9 +224,9 @@ class _ImageRepository implements MarketplaceRepository {
   @override
   Future<PagedProducts> getMyProducts(ProductFilters filters, {int page = 1}) => throw UnimplementedError();
   @override
-  Future<Product> createProduct({required String categoryId, required String name, required String description, double? price, String? currency, int? stockQuantity, required ProductCondition condition, String? location}) => throw UnimplementedError();
+  Future<Product> createProduct({required String categoryId, required String name, required String description, double? price, String? currency, int? stockQuantity, required ProductCondition condition, String? location, double? latitude, double? longitude, String? paymentMethod}) => throw UnimplementedError();
   @override
-  Future<Product> updateProduct({required String id, required String categoryId, required String name, required String description, double? price, String? currency, int? stockQuantity, required ProductCondition condition, String? location, required String expectedRowVersion}) => throw UnimplementedError();
+  Future<Product> updateProduct({required String id, required String categoryId, required String name, required String description, double? price, String? currency, int? stockQuantity, required ProductCondition condition, String? location, double? latitude, double? longitude, String? paymentMethod, required String expectedRowVersion}) => throw UnimplementedError();
   @override
   Future<void> deleteProduct(String id) => throw UnimplementedError();
   @override

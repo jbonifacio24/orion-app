@@ -7,4 +7,5 @@ abstract interface class TheftRepository {
   Future<PagedTheftReports> getMyReports({int page = 1, int pageSize = 20});
   Future<TheftReport> createReport(CreateTheftReportInput input);
   Future<TheftReport> updateStatus(String id, TheftReportStatus status);
+  Future<void> deleteReport(String id);
 }

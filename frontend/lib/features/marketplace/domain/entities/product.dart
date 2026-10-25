@@ -16,6 +16,9 @@ class Product {
     required this.condition,
     required this.status,
     required this.location,
+    this.latitude,
+    this.longitude,
+    this.paymentMethod,
     required this.publishedAt,
     required this.createdAt,
     required this.rowVersion,
@@ -32,6 +35,9 @@ class Product {
   final ProductCondition condition;
   final ProductStatus status;
   final String? location;
+  final double? latitude;
+  final double? longitude;
+  final String? paymentMethod;
   final DateTime? publishedAt;
   final DateTime createdAt;
   final String rowVersion;

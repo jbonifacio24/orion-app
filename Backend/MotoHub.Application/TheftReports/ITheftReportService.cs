@@ -10,6 +10,7 @@ public interface ITheftReportService
     Task<PagedResponse<TheftReportResponseDto>> GetMineAsync(Guid userId, TheftReportListQueryDto query, CancellationToken cancellationToken);
     Task<TheftReportResponseDto> CreateAsync(Guid userId, CreateTheftReportRequestDto request, CancellationToken cancellationToken);
     Task<TheftReportResponseDto> UpdateStatusAsync(Guid userId, Guid reportId, UpdateTheftReportStatusRequestDto request, CancellationToken cancellationToken);
+    Task DeleteAsync(Guid reportId, CancellationToken cancellationToken);
 }
 
 public sealed record TheftReportListQueryDto(

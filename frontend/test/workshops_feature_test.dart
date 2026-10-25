@@ -12,6 +12,7 @@ import 'package:motohub/features/workshops/domain/entities/workshop_detail.dart'
 import 'package:motohub/features/workshops/domain/entities/workshop_filters.dart';
 import 'package:motohub/features/workshops/domain/repositories/workshop_repository.dart';
 import 'package:motohub/features/workshops/domain/usecases/get_workshop_detail.dart';
+import 'package:motohub/features/workshops/domain/usecases/delete_workshop.dart';
 import 'package:motohub/features/workshops/domain/usecases/get_workshops.dart';
 import 'package:motohub/features/workshops/presentation/cubit/workshop_detail_cubit.dart';
 import 'package:motohub/features/workshops/presentation/cubit/workshops_cubit.dart';
@@ -100,7 +101,7 @@ void main() {
   testWidgets('workshops view toggles between list and map without recreating the cubit', (tester) async {
     const workshop = Workshop(id: 'visible', name: 'Taller visible', description: null, address: null, city: null, latitude: -12, longitude: -77, averageRating: null, reviewCount: 0);
     final repository = _FakeWorkshopRepository(onList: (_, __) => Future.value(const PagedWorkshops(items: [workshop], page: 1, pageSize: 20, totalCount: 1, totalPages: 1)));
-    final cubit = WorkshopsCubit(GetWorkshops(repository));
+    final cubit = WorkshopsCubit(GetWorkshops(repository), DeleteWorkshop(repository));
     addTearDown(cubit.close);
 
     await tester.pumpWidget(BlocProvider.value(value: cubit, child: const MaterialApp(home: WorkshopsPage())));
@@ -122,7 +123,7 @@ void main() {
     final first = Completer<PagedWorkshops>();
     final second = Completer<PagedWorkshops>();
     final repository = _FakeWorkshopRepository(onList: (filters, page) => filters.search == 'first' ? first.future : second.future);
-    final cubit = WorkshopsCubit(GetWorkshops(repository));
+    final cubit = WorkshopsCubit(GetWorkshops(repository), DeleteWorkshop(repository));
     addTearDown(cubit.close);
 
     cubit.searchChanged('first');
@@ -145,7 +146,7 @@ void main() {
       if (page == 2 && calls == 2) return Future.error(const NetworkFailure('offline'));
       return Future.value(_page(page == 1 ? 'first' : 'second', page: page, totalPages: 2));
     });
-    final cubit = WorkshopsCubit(GetWorkshops(repository));
+    final cubit = WorkshopsCubit(GetWorkshops(repository), DeleteWorkshop(repository));
     addTearDown(cubit.close);
 
     await cubit.load();
@@ -154,6 +155,22 @@ void main() {
     expect(cubit.state.loadingMoreFailure, isNotNull);
     await cubit.retryLoadMore();
     expect(cubit.state.items.map((item) => item.name), containsAll(<String>['first', 'second']));
+  });
+
+  test('workshops cubit removes a deleted workshop from the current list', () async {
+    var deletedId = '';
+    final repository = _FakeWorkshopRepository(
+      onList: (_, __) => Future.value(_page('workshop')),
+      onDelete: (id) async => deletedId = id,
+    );
+    final cubit = WorkshopsCubit(GetWorkshops(repository), DeleteWorkshop(repository));
+    addTearDown(cubit.close);
+    await cubit.load();
+
+    expect(await cubit.delete('workshop'), isTrue);
+    expect(deletedId, 'workshop');
+    expect(cubit.state.items, isEmpty);
+    expect(cubit.state.totalCount, 0);
   });
 
   test('detail cubit loads and refreshes the requested id', () async {
@@ -229,13 +246,17 @@ PagedWorkshops _page(String name, {int page = 1, int totalPages = 1}) => PagedWo
 WorkshopDetail _detail(String id) => WorkshopDetail(id: id, name: 'Taller', description: null, address: null, city: null, latitude: null, longitude: null, averageRating: null, reviewCount: 0, phoneNumber: null, email: null, verifiedAt: null, schedules: const [], services: const [], reviews: const []);
 
 class _FakeWorkshopRepository implements WorkshopRepository {
-  _FakeWorkshopRepository({this.onList, this.onDetail});
+  _FakeWorkshopRepository({this.onList, this.onDetail, this.onDelete});
   final Future<PagedWorkshops> Function(WorkshopFilters filters, int page)? onList;
   final Future<WorkshopDetail> Function(String id)? onDetail;
+  final Future<void> Function(String id)? onDelete;
 
   @override
   Future<PagedWorkshops> getWorkshops(WorkshopFilters filters, {int page = 1}) => onList?.call(filters, page) ?? Future.value(_page('default'));
 
   @override
   Future<WorkshopDetail> getWorkshopDetail(String id) => onDetail?.call(id) ?? Future.value(_detail(id));
+
+  @override
+  Future<void> deleteWorkshop(String id) async => onDelete?.call(id);
 }

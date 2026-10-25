@@ -24,7 +24,7 @@ class ProductFormCubit extends Cubit<ProductFormState> {
   final Product? initial;
   bool _submitted = false;
 
-  Future<bool> submit({required String categoryId, required String name, required String description, double? price, String? currency, int? stockQuantity, required ProductCondition condition, String? location}) async {
+  Future<bool> submit({required String categoryId, required String name, required String description, double? price, String? currency, int? stockQuantity, required ProductCondition condition, String? location, double? latitude, double? longitude, String? paymentMethod}) async {
     if (_submitted) return false;
     if (mode == ProductFormMode.edit && (initial == null || initial!.rowVersion.isEmpty)) {
       emit(const ProductFormState(error: 'No se encontró la versión del producto para editar.'));
@@ -34,8 +34,8 @@ class ProductFormCubit extends Cubit<ProductFormState> {
     emit(ProductFormState(submitting: true, product: initial));
     try {
       final product = mode == ProductFormMode.create
-          ? await _create(categoryId: categoryId, name: name, description: description, price: price, currency: price == null ? null : currency, stockQuantity: stockQuantity, condition: condition, location: location)
-          : await _update(id: initial!.id, categoryId: categoryId, name: name, description: description, price: price, currency: price == null ? null : currency, stockQuantity: stockQuantity, condition: condition, location: location, expectedRowVersion: initial!.rowVersion);
+          ? await _create(categoryId: categoryId, name: name, description: description, price: price, currency: price == null ? null : currency, stockQuantity: stockQuantity, condition: condition, location: location, latitude: latitude, longitude: longitude, paymentMethod: paymentMethod)
+          : await _update(id: initial!.id, categoryId: categoryId, name: name, description: description, price: price, currency: price == null ? null : currency, stockQuantity: stockQuantity, condition: condition, location: location, latitude: latitude, longitude: longitude, paymentMethod: paymentMethod, expectedRowVersion: initial!.rowVersion);
       emit(ProductFormState(product: product, success: true));
       return true;
     } catch (error) {

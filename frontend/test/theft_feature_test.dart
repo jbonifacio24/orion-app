@@ -10,6 +10,7 @@ import 'package:motohub/features/theft/domain/usecases/theft_report_usecases.dar
 import 'package:motohub/features/theft/presentation/cubit/my_theft_reports_cubit.dart';
 import 'package:motohub/features/theft/presentation/cubit/theft_reports_cubit.dart';
 import 'package:motohub/features/theft/presentation/widgets/theft_report_card.dart';
+import 'package:motohub/features/theft/presentation/widgets/theft_location_picker.dart';
 
 void main() {
   test('maps theft report JSON and supports masked VIN responses', () {
@@ -76,7 +77,7 @@ void main() {
         1: _page([_report()], page: 1, totalCount: 2, totalPages: 2),
         2: _page([_report(id: 'report-2')], page: 2, totalCount: 2, totalPages: 2),
       };
-    final cubit = TheftReportsCubit(GetActiveTheftReports(repository));
+    final cubit = TheftReportsCubit(GetActiveTheftReports(repository), DeleteTheftReport(repository));
     addTearDown(cubit.close);
 
     await cubit.load();
@@ -88,6 +89,21 @@ void main() {
     expect(cubit.state.pageSize, 20);
     expect(cubit.state.totalCount, 2);
     expect(cubit.state.totalPages, 2);
+  });
+
+  test('admin report deletion removes the report from the active list', () async {
+    final repository = _FakeTheftRepository()
+      ..activePages = {1: _page([_report()], page: 1, totalCount: 1, totalPages: 1)};
+    final cubit = TheftReportsCubit(GetActiveTheftReports(repository), DeleteTheftReport(repository));
+    addTearDown(cubit.close);
+    await cubit.load();
+
+    expect(await cubit.deleteReport('report-1'), isTrue);
+
+    expect(repository.deletedReports, ['report-1']);
+    expect(cubit.state.reports, isEmpty);
+    expect(cubit.state.totalCount, 0);
+    expect(cubit.state.deletingReportId, isNull);
   });
 
   test('personal reports Cubit only sends recovered or closed status updates', () async {
@@ -144,6 +160,12 @@ void main() {
     expect(find.textContaining('Honda CB 190R'), findsOneWidget);
     expect(find.text('Reportado'), findsOneWidget);
   });
+
+  testWidgets('location picker exposes the current location control', (tester) async {
+    await tester.pumpWidget(const MaterialApp(home: TheftLocationPicker()));
+
+    expect(find.byTooltip('Usar mi ubicación actual'), findsOneWidget);
+  });
 }
 
 Map<String, dynamic> _reportJson(String id) => {
@@ -173,6 +195,7 @@ class _FakeTheftRepository implements TheftRepository {
   Map<int, PagedTheftReports> myPages = const {};
   final List<(int, int)> myReportRequests = [];
   final List<(String, TheftReportStatus)> statusUpdates = [];
+  final List<String> deletedReports = [];
 
   @override
   Future<TheftReport> createReport(CreateTheftReportInput input) async => _report();
@@ -193,5 +216,10 @@ class _FakeTheftRepository implements TheftRepository {
   Future<TheftReport> updateStatus(String id, TheftReportStatus status) async {
     statusUpdates.add((id, status));
     return _report(status: status);
+  }
+
+  @override
+  Future<void> deleteReport(String id) async {
+    deletedReports.add(id);
   }
 }

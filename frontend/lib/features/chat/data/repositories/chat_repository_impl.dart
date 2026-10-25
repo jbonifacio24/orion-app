@@ -1,4 +1,5 @@
 import '../../../../core/error/error_mapper.dart';
+import 'package:file_picker/file_picker.dart';
 import '../../domain/entities/chat_entities.dart';
 import '../../domain/repositories/chat_repository.dart';
 import '../datasources/chat_rest_data_source.dart';
@@ -19,6 +20,9 @@ class ChatRepositoryImpl implements ChatRepository {
 
   @override
   Future<ChatMessage> sendMessage({required String conversationId, required String content}) => _map(() => _dataSource.sendMessage(conversationId: conversationId, content: content));
+
+  @override
+  Future<ChatMessage> sendAttachment({required String conversationId, required PlatformFile file}) => _map(() => _dataSource.sendAttachment(conversationId: conversationId, file: file));
 
   @override
   Future<void> markConversationRead(String conversationId) => _map(() => _dataSource.markConversationRead(conversationId));

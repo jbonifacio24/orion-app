@@ -17,6 +17,13 @@ abstract final class RouteNames {
   static const marketplaceCreate = 'marketplace-create';
   static const marketplaceProductEdit = 'marketplace-product-edit';
   static const marketplaceProductImages = 'marketplace-product-images';
+  static const marketplaceTransaction = 'marketplace-transaction';
+  static const marketplaceTransactions = 'marketplace-transactions';
+  static const marketplaceOffer = 'marketplace-offer';
+  static const delivery = 'delivery';
+  static const travelRoutes = 'travel-routes';
+  static const travelRouteCreate = 'travel-route-create';
+  static const travelRouteTrack = 'travel-route-track';
   static const myProducts = 'my-products';
   static const favorites = 'favorites';
   static const workshops = 'workshops';
@@ -30,9 +37,11 @@ abstract final class RouteNames {
   static const communityPostDetail = 'community-post-detail';
   static const news = 'news';
   static const newsDetail = 'news-detail';
+  static const newsCreate = 'news-create';
   static const communityPath = '/community';
   static const communityCreatePath = '/community/create';
   static const communityPostDetailPath = '/community/posts/:postId';
   static const newsPath = '/news';
   static const newsDetailPath = '/news/:newsId';
+  static const newsCreatePath = '/news/create';
 }

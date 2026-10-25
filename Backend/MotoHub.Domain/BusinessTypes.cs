@@ -14,6 +14,16 @@ public enum ProductStatus
     Archived
 }
 
+public enum ProductTransactionStatus
+{
+    Offer,
+    Accepted,
+    Paid,
+    Delivered,
+    Completed,
+    Cancelled
+}
+
 public enum WorkshopStatus
 {
     Pending,
@@ -122,4 +132,13 @@ public enum ModerationReportStatus
     Reviewing,
     Resolved,
     Rejected
+}
+
+public enum DeliveryStatus
+{
+    Requested,
+    InTransit,
+    Near,
+    Delivered,
+    Cancelled
 }

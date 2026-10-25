@@ -113,6 +113,22 @@ public sealed class WorkshopServiceTests
     }
 
     [Fact]
+    public async Task Delete_soft_deletes_workshop_and_rejects_missing_workshop()
+    {
+        await using var context = CreateContext();
+        var workshop = AddWorkshop(context, "Delete me", WorkshopStatus.Active);
+        await context.SaveChangesAsync();
+        var service = new InfrastructureWorkshopService(context);
+
+        await service.DeleteWorkshopAsync(workshop.Id, default);
+
+        Assert.True(workshop.IsDeleted);
+        Assert.NotNull(workshop.DeletedAt);
+        Assert.False(await context.Workshops.AnyAsync(item => item.Id == workshop.Id));
+        await Assert.ThrowsAsync<ResourceNotFoundException>(() => service.DeleteWorkshopAsync(Guid.NewGuid(), default));
+    }
+
+    [Fact]
     public async Task Detail_limits_reviews_but_calculates_rating_over_all_published_reviews()
     {
         await using var context = CreateContext();

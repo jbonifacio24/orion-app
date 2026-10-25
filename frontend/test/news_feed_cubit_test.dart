@@ -196,6 +196,10 @@ class _FakeNewsRepository implements NewsRepository {
   Future<NewsDetail> getNewsDetail(String newsId) => Future.error(UnsupportedError('Not used in feed tests'));
 
   @override
+  Future<NewsDetail> createNews({required String title, String? summary, required String content, String? featuredImageUrl}) =>
+      Future.error(UnsupportedError('Not used in feed tests'));
+
+  @override
   Future<PagedNews> getNewsFeed({required int page, required int pageSize, String? categoryId}) {
     requestedPages.add(page);
     requestedCategories.add(categoryId);

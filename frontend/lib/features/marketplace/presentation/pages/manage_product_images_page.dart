@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../../core/localization/app_localizations.dart';
 import '../../../../core/network/media_url_resolver.dart';
+import '../../../../core/widgets/app_loading.dart';
 import '../../domain/entities/product_image.dart';
 import '../cubit/product_images_cubit.dart';
 import '../models/local_product_image_selection.dart';
@@ -48,7 +49,7 @@ class _ManageProductImagesPageState extends State<ManageProductImagesPage> {
       appBar: AppBar(title: const Text(AppLocalizations.manageProductImages)),
       body: BlocBuilder<ProductImagesCubit, ProductImagesState>(
         builder: (context, state) {
-          if (state.isLoading && state.product == null) return const Center(child: CircularProgressIndicator());
+          if (state.isLoading && state.product == null) return const AppLoading();
           if (state.error != null && state.product == null) return Center(child: Text(state.error!));
           final owner = state.isOwner;
           return RefreshIndicator(
@@ -111,7 +112,7 @@ class _RemoteImageTile extends StatelessWidget {
   final Future<void> Function(ProductImage image) onPrimary;
 
   @override
-  Widget build(BuildContext context) => Card(clipBehavior: Clip.antiAlias, child: Column(children: [Expanded(child: Image.network(MediaUrlResolver.resolve(image.url), width: double.infinity, fit: BoxFit.cover, loadingBuilder: (context, child, progress) => progress == null ? child : const Center(child: CircularProgressIndicator()), errorBuilder: (_, __, ___) => const Center(child: Icon(Icons.broken_image_outlined)))), if (image.isPrimary) const Padding(padding: EdgeInsets.all(6), child: Chip(label: Text(AppLocalizations.imagePrimary))), if (owner && !busy) Row(mainAxisAlignment: MainAxisAlignment.spaceEvenly, children: [if (!image.isPrimary) IconButton(onPressed: () => onPrimary(image), tooltip: AppLocalizations.setAsPrimary, icon: const Icon(Icons.star_border)), IconButton(onPressed: () => onDelete(image), tooltip: AppLocalizations.deleteImage, icon: const Icon(Icons.delete_outline))]) else if (busy) const Padding(padding: EdgeInsets.all(12), child: SizedBox.square(dimension: 20, child: CircularProgressIndicator(strokeWidth: 2)))]));
+  Widget build(BuildContext context) => Card(clipBehavior: Clip.antiAlias, child: Column(children: [Expanded(child: Image.network(MediaUrlResolver.resolve(image.url), width: double.infinity, fit: BoxFit.cover, loadingBuilder: (context, child, progress) => progress == null ? child : const AppLoading(compact: true), errorBuilder: (_, __, ___) => const Center(child: Icon(Icons.broken_image_outlined)))), if (image.isPrimary) const Padding(padding: EdgeInsets.all(6), child: Chip(label: Text(AppLocalizations.imagePrimary))), if (owner && !busy) Row(mainAxisAlignment: MainAxisAlignment.spaceEvenly, children: [if (!image.isPrimary) IconButton(onPressed: () => onPrimary(image), tooltip: AppLocalizations.setAsPrimary, icon: const Icon(Icons.star_border)), IconButton(onPressed: () => onDelete(image), tooltip: AppLocalizations.deleteImage, icon: const Icon(Icons.delete_outline))]) else if (busy) const Padding(padding: EdgeInsets.all(12), child: AppLoading(compact: true))]));
 }
 
 class _LocalSection extends StatelessWidget {

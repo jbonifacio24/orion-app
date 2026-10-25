@@ -1,3 +1,4 @@
+using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using MotoHub.Application.Errors;
 using MotoHub.Application.Marketplace;
@@ -181,6 +182,163 @@ public sealed class MarketplaceServiceTests
 
         await Assert.ThrowsAsync<ConflictException>(() => service.UpdateAsync(owner.Id, product.Id, request(Convert.ToBase64String([9])), default));
         await Assert.ThrowsAsync<ValidationException>(() => service.UpdateAsync(owner.Id, product.Id, request("not-base64"), default));
+    }
+
+    [Fact]
+    public async Task Delivery_search_is_limited_to_paid_participants_and_nearby_opted_in_drivers()
+    {
+        await using var context = CreateContext();
+        var buyer = AddUser(context, "buyer");
+        var seller = AddUser(context, "seller");
+        var nearbyDriver = AddUser(context, "nearby-driver", "Nearby", "Driver");
+        var distantDriver = AddUser(context, "distant-driver");
+        var stranger = AddUser(context, "stranger");
+        var category = AddCategory(context, "parts", "Parts", true, 1);
+        var product = new Product { SellerUserId = seller.Id, CategoryId = category.Id, Name = "Part", Description = "Description", Status = ProductStatus.Active, Latitude = -12.0464m, Longitude = -77.0428m };
+        var transaction = new ProductTransaction { Product = product, SellerUserId = seller.Id, BuyerUserId = buyer.Id, OfferedAmount = 100m, Currency = "PEN", PaymentMethod = "cash", Status = ProductTransactionStatus.Paid };
+        context.Products.Add(product);
+        context.ProductTransactions.Add(transaction);
+        await context.SaveChangesAsync();
+        var service = new DeliveryService(context);
+        await service.UpdateDriverAvailabilityAsync(nearbyDriver.Id, new UpdateDeliveryDriverAvailabilityRequestDto(-12.05m, -77.04m, true), default);
+        await service.UpdateDriverAvailabilityAsync(distantDriver.Id, new UpdateDeliveryDriverAvailabilityRequestDto(-13m, -77m, true), default);
+
+        var drivers = await service.GetNearbyDriversAsync(buyer.Id, transaction.Id, default);
+
+        var onlyDriver = Assert.Single(drivers);
+        Assert.Equal(nearbyDriver.Id, onlyDriver.UserId);
+        Assert.Equal("Nearby Driver", onlyDriver.DisplayName);
+        await Assert.ThrowsAsync<ResourceNotFoundException>(() => service.GetNearbyDriversAsync(stranger.Id, transaction.Id, default));
+    }
+
+    [Fact]
+    public async Task Delivery_request_assigns_selected_driver_and_only_driver_can_update_location()
+    {
+        await using var context = CreateContext();
+        var buyer = AddUser(context, "buyer");
+        var seller = AddUser(context, "seller");
+        var driver = AddUser(context, "driver");
+        var category = AddCategory(context, "parts", "Parts", true, 1);
+        var product = new Product { SellerUserId = seller.Id, CategoryId = category.Id, Name = "Part", Description = "Description", Status = ProductStatus.Active, Latitude = -12.0464m, Longitude = -77.0428m };
+        var transaction = new ProductTransaction { Product = product, SellerUserId = seller.Id, BuyerUserId = buyer.Id, OfferedAmount = 100m, Currency = "PEN", PaymentMethod = "cash", Status = ProductTransactionStatus.Paid };
+        context.Products.Add(product);
+        context.ProductTransactions.Add(transaction);
+        await context.SaveChangesAsync();
+        var service = new DeliveryService(context);
+        await service.UpdateDriverAvailabilityAsync(driver.Id, new UpdateDeliveryDriverAvailabilityRequestDto(-12.05m, -77.04m, true), default);
+
+        var delivery = await service.RequestAsync(buyer.Id, transaction.Id, new CreateDeliveryRequestDto(-12.1m, -77.1m, driver.Id), default);
+
+        Assert.Equal(driver.Id, delivery.DriverUserId);
+        Assert.Equal(product.Latitude, delivery.PickupLatitude);
+        Assert.Equal(product.Longitude, delivery.PickupLongitude);
+        Assert.False((await context.DeliveryDriverProfiles.SingleAsync(x => x.UserId == driver.Id)).IsAvailable);
+        await Assert.ThrowsAsync<ConflictException>(() => service.UpdateDriverAvailabilityAsync(driver.Id, new UpdateDeliveryDriverAvailabilityRequestDto(-12.05m, -77.04m, true), default));
+        await Assert.ThrowsAsync<UnauthorizedAccessException>(() => service.UpdateLocationAsync(seller.Id, transaction.Id, new UpdateDeliveryLocationRequestDto(-12.1m, -77.1m), default));
+        var updated = await service.UpdateLocationAsync(driver.Id, transaction.Id, new UpdateDeliveryLocationRequestDto(-12.1m, -77.1m), default);
+        Assert.Equal(DeliveryStatus.Near, updated.Status);
+    }
+
+    [Fact]
+    public async Task Driver_availability_requires_confirmed_profile_and_a_motorcycle_with_registration_data()
+    {
+        await using var context = CreateContext();
+        var qualified = AddUser(context, "qualified-driver", "Ana", "Rider");
+        qualified.EmailConfirmed = true;
+        qualified.PhoneNumber = "+51999111222";
+        var unqualified = AddUser(context, "unqualified-driver");
+        context.Motorcycles.Add(new Motorcycle { OwnerUserId = qualified.Id, Brand = "Honda", Model = "CB", Year = 2022, LicensePlate = "ABC-123", Vin = "VIN123456789" });
+        await context.SaveChangesAsync();
+        var service = new DeliveryService(context);
+
+        var eligibility = await service.GetDriverEligibilityAsync(qualified.Id, default);
+        Assert.True(eligibility.IsEligible);
+        await service.UpdateDriverAvailabilityAsync(qualified.Id, new UpdateDeliveryDriverAvailabilityRequestDto(-12.05m, -77.04m, true), default);
+        Assert.False((await service.GetDriverEligibilityAsync(unqualified.Id, default)).IsEligible);
+        await Assert.ThrowsAsync<ConflictException>(() => service.UpdateDriverAvailabilityAsync(unqualified.Id, new UpdateDeliveryDriverAvailabilityRequestDto(-12.05m, -77.04m, true), default));
+    }
+
+    [Fact]
+    public async Task Completed_transaction_allows_both_participants_to_review_each_other_and_reports_reputation_by_role()
+    {
+        await using var context = CreateContext();
+        var buyer = AddUser(context, "buyer");
+        var seller = AddUser(context, "seller");
+        var category = AddCategory(context, "parts", "Parts", true, 1);
+        var product = new Product { SellerUserId = seller.Id, CategoryId = category.Id, Name = "Part", Description = "Description", Status = ProductStatus.Sold };
+        var transaction = new ProductTransaction { Product = product, SellerUserId = seller.Id, BuyerUserId = buyer.Id, OfferedAmount = 100m, Currency = "PEN", PaymentMethod = "cash", Status = ProductTransactionStatus.Completed };
+        context.Products.Add(product);
+        context.ProductTransactions.Add(transaction);
+        await context.SaveChangesAsync();
+        var service = new ProductTransactionService(context);
+
+        var sellerReview = await service.AddReviewAsync(buyer.Id, transaction.Id, new CreateProductTransactionReviewRequestDto(5, "Venta correcta"), default);
+        var buyerReview = await service.AddReviewAsync(seller.Id, transaction.Id, new CreateProductTransactionReviewRequestDto(4, "Pago puntual"), default);
+        var reputation = await service.GetReputationAsync(seller.Id, transaction.Id, default);
+
+        Assert.Equal(seller.Id, sellerReview.ReviewedUserId);
+        Assert.Equal(buyer.Id, buyerReview.ReviewedUserId);
+        Assert.Equal(5m, reputation.Seller.AverageRating);
+        Assert.Equal(1, reputation.Seller.RatingCount);
+        Assert.Equal(1, reputation.Seller.SuccessfulSales);
+        Assert.Equal(4m, reputation.Buyer.AverageRating);
+        Assert.Equal(1, reputation.Buyer.RatingCount);
+        Assert.Equal(1, reputation.Buyer.SuccessfulPurchases);
+        await Assert.ThrowsAsync<ConflictException>(() => service.AddReviewAsync(buyer.Id, transaction.Id, new CreateProductTransactionReviewRequestDto(3, null), default));
+    }
+
+    [Fact]
+    public async Task Offer_acceptance_and_payment_create_marketplace_notifications_for_the_other_participant()
+    {
+        await using var context = CreateContext();
+        var buyer = AddUser(context, "buyer");
+        var seller = AddUser(context, "seller");
+        var category = AddCategory(context, "parts", "Parts", true, 1);
+        var product = new Product
+        {
+            SellerUserId = seller.Id,
+            CategoryId = category.Id,
+            Name = "Casco",
+            Description = "Casco de prueba",
+            Status = ProductStatus.Active
+        };
+        context.Users.AddRange(buyer, seller);
+        context.ProductCategories.Add(category);
+        context.Products.Add(product);
+        await context.SaveChangesAsync();
+        var service = new ProductTransactionService(context);
+
+        var offer = await service.CreateAsync(
+            buyer.Id,
+            product.Id,
+            new CreateProductTransactionRequestDto(120m, "PEN", "Efectivo"),
+            default);
+        await service.ChangeStatusAsync(seller.Id, offer.Id, "accept", null, default);
+        await service.ChangeStatusAsync(buyer.Id, offer.Id, "paid", null, default);
+
+        var notifications = await context.Notifications.OrderBy(x => x.CreatedAt).ToListAsync();
+        Assert.Equal(3, notifications.Count);
+        Assert.Collection(
+            notifications,
+            notification => AssertNotification(notification, seller.Id, buyer.Id, "Nueva oferta recibida", product.Id),
+            notification => AssertNotification(notification, buyer.Id, seller.Id, "Oferta aceptada", product.Id),
+            notification => AssertNotification(notification, seller.Id, buyer.Id, "Pago marcado como realizado", product.Id));
+    }
+
+    private static void AssertNotification(
+        Notification notification,
+        Guid recipientId,
+        Guid actorId,
+        string title,
+        Guid productId)
+    {
+        Assert.Equal(recipientId, notification.RecipientUserId);
+        Assert.Equal(actorId, notification.ActorUserId);
+        Assert.Equal(NotificationType.Marketplace, notification.Type);
+        Assert.Equal(title, notification.Title);
+        using var target = JsonDocument.Parse(notification.DataJson!);
+        Assert.Equal("Product", target.RootElement.GetProperty("resourceType").GetString());
+        Assert.Equal(productId, target.RootElement.GetProperty("resourceId").GetGuid());
     }
 
     private static CreateProductRequestDto Request(Guid categoryId, string name, string description, decimal? price, string? currency = "PEN", int? stockQuantity = null)

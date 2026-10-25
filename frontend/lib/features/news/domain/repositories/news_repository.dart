@@ -6,4 +6,5 @@ abstract interface class NewsRepository {
   Future<PagedNews> getNewsFeed({required int page, required int pageSize, String? categoryId});
   Future<List<NewsCategory>> getNewsCategories();
   Future<NewsDetail> getNewsDetail(String newsId);
+  Future<NewsDetail> createNews({required String title, String? summary, required String content, String? featuredImageUrl});
 }

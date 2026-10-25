@@ -20,6 +20,10 @@ class NewsRepositoryImpl implements NewsRepository {
   @override
   Future<NewsDetail> getNewsDetail(String newsId) => _map(() => _dataSource.getNewsDetail(newsId));
 
+  @override
+  Future<NewsDetail> createNews({required String title, String? summary, required String content, String? featuredImageUrl}) =>
+      _map(() => _dataSource.createNews(title: title, summary: summary, content: content, featuredImageUrl: featuredImageUrl));
+
   Future<T> _map<T>(Future<T> Function() action) async {
     try {
       return await action();

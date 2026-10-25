@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using MotoHub.Application;
 using MotoHub.Application.Marketplace;
 using MotoHub.Application.Workshops;
 
@@ -17,4 +18,13 @@ public sealed class WorkshopsController(IWorkshopService workshopService) : Cont
     [HttpGet("{id:guid}")]
     public Task<WorkshopDetailResponseDto> GetById(Guid id, CancellationToken cancellationToken)
         => workshopService.GetWorkshopByIdAsync(id, cancellationToken);
+
+    [HttpDelete("{id:guid}")]
+    [Authorize(Policy = AdminSecurity.AdminAccessPolicy)]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    public async Task<IActionResult> Delete(Guid id, CancellationToken cancellationToken)
+    {
+        await workshopService.DeleteWorkshopAsync(id, cancellationToken);
+        return NoContent();
+    }
 }

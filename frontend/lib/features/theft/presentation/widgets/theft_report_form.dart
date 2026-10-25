@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:latlong2/latlong.dart';
 
 import '../../../../core/widgets/app_button.dart';
 import '../../../motorcycles/domain/entities/motorcycle.dart';
 import '../../domain/entities/theft_report.dart';
+import 'theft_location_picker.dart';
 
 class TheftReportForm extends StatefulWidget {
   const TheftReportForm({required this.motorcycles, required this.loading, required this.onSubmit, super.key});
@@ -24,27 +26,20 @@ class _TheftReportFormState extends State<TheftReportForm> {
   final _vin = TextEditingController();
   final _color = TextEditingController();
   final _location = TextEditingController();
-  final _latitude = TextEditingController();
-  final _longitude = TextEditingController();
   DateTime _theftDate = DateTime.now();
   bool _useOwnMotorcycle = true;
   String? _motorcycleId;
+  LatLng? _selectedLocation;
 
   @override
   void dispose() {
-    for (final controller in [_title, _description, _brand, _model, _plate, _vin, _color, _location, _latitude, _longitude]) {
+    for (final controller in [_title, _description, _brand, _model, _plate, _vin, _color, _location]) {
       controller.dispose();
     }
     super.dispose();
   }
 
   String? _required(String? value) => value == null || value.trim().isEmpty ? 'Campo requerido.' : null;
-  String? _coordinate(String? value, double minimum, double maximum) {
-    if (value == null || value.trim().isEmpty) return null;
-    final number = double.tryParse(value.trim());
-    return number == null || number < minimum || number > maximum ? 'Coordenada inválida.' : null;
-  }
-
   String? _optional(TextEditingController controller) {
     final value = controller.text.trim();
     return value.isEmpty ? null : value;
@@ -53,6 +48,15 @@ class _TheftReportFormState extends State<TheftReportForm> {
   Future<void> _pickDate() async {
     final date = await showDatePicker(context: context, initialDate: _theftDate, firstDate: DateTime(2000), lastDate: DateTime.now());
     if (date != null && mounted) setState(() => _theftDate = date);
+  }
+
+  Future<void> _pickLocation() async {
+    final location = await showModalBottomSheet<LatLng>(
+      context: context,
+      isScrollControlled: true,
+      builder: (context) => SizedBox(height: MediaQuery.sizeOf(context).height * 0.84, child: TheftLocationPicker(initialLocation: _selectedLocation)),
+    );
+    if (location != null && mounted) setState(() => _selectedLocation = location);
   }
 
   @override
@@ -84,8 +88,17 @@ class _TheftReportFormState extends State<TheftReportForm> {
             TextFormField(controller: _color, maxLength: 50, decoration: const InputDecoration(labelText: 'Color (opcional)')),
           ],
           TextFormField(controller: _location, maxLength: 300, decoration: const InputDecoration(labelText: 'Lugar del robo (opcional)')),
-          TextFormField(controller: _latitude, keyboardType: const TextInputType.numberWithOptions(decimal: true, signed: true), decoration: const InputDecoration(labelText: 'Latitud (opcional)'), validator: (value) => _coordinate(value, -90, 90)),
-          TextFormField(controller: _longitude, keyboardType: const TextInputType.numberWithOptions(decimal: true, signed: true), decoration: const InputDecoration(labelText: 'Longitud (opcional)'), validator: (value) => _coordinate(value, -180, 180)),
+          Card(
+            child: ListTile(
+              leading: Icon(Icons.map_rounded, color: Theme.of(context).colorScheme.primary),
+              title: Text(_selectedLocation == null ? 'Selecciona el lugar en el mapa' : 'Ubicación seleccionada'),
+              subtitle: _selectedLocation == null ? const Text('Toca el mapa para marcar dónde ocurrió') : Text('${_selectedLocation!.latitude.toStringAsFixed(6)}, ${_selectedLocation!.longitude.toStringAsFixed(6)}'),
+              trailing: IconButton(tooltip: 'Abrir mapa', onPressed: widget.loading ? null : _pickLocation, icon: const Icon(Icons.open_in_new_rounded)),
+              onTap: widget.loading ? null : _pickLocation,
+            ),
+          ),
+          if (_selectedLocation != null)
+            Align(alignment: Alignment.centerRight, child: TextButton.icon(onPressed: widget.loading ? null : () => setState(() => _selectedLocation = null), icon: const Icon(Icons.clear), label: const Text('Quitar ubicación'))),
           const SizedBox(height: 20),
           AppButton(label: 'Publicar reporte', loading: widget.loading, onPressed: () async {
             if (!_formKey.currentState!.validate()) return;
@@ -104,8 +117,8 @@ class _TheftReportFormState extends State<TheftReportForm> {
               vin: _useOwnMotorcycle ? null : _optional(_vin),
               color: _useOwnMotorcycle ? null : _optional(_color),
               theftLocation: _optional(_location),
-              latitude: double.tryParse(_latitude.text.trim()),
-              longitude: double.tryParse(_longitude.text.trim()),
+              latitude: _selectedLocation?.latitude,
+              longitude: _selectedLocation?.longitude,
             ));
           }),
         ]),

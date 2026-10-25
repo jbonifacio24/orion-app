@@ -2,6 +2,7 @@ import '../entities/auth_entities.dart';
 
 abstract interface class AuthRepository {
   Future<AuthUser> login(String emailOrUserName, String password);
+  Future<AuthUser> loginWithGoogle(String idToken);
   Future<AuthUser> register({
     required String email,
     required String userName,
@@ -12,6 +13,7 @@ abstract interface class AuthRepository {
   });
   Future<void> logout();
   Future<void> restoreSession();
+  Future<void> confirmEmail(String userId, String token);
   Future<void> forgotPassword(String email);
   AuthUser? get currentUser;
 }

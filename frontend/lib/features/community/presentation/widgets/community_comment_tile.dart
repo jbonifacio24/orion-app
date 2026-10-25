@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../../core/localization/app_localizations.dart';
+import '../../../../core/widgets/app_loading.dart';
 import '../../domain/entities/community_comment.dart';
 import 'community_post_card.dart';
 
@@ -30,7 +31,7 @@ class CommunityCommentTile extends StatelessWidget {
                   children: [
                     Expanded(child: Text(comment.author.displayName, style: Theme.of(context).textTheme.titleSmall)),
                     if (comment.isOwner && isDeleting)
-                      const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
+                      const AppLoading(compact: true)
                     else if (comment.isOwner && onDelete != null)
                       IconButton(
                         visualDensity: VisualDensity.compact,

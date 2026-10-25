@@ -67,7 +67,8 @@ class AuthCubit extends Cubit<AuthState> {
     try {
       await _restoreSession();
       final user = _repository.currentUser;
-      emit(user == null ? const AuthUnauthenticated() : AuthAuthenticated(user));
+      emit(
+          user == null ? const AuthUnauthenticated() : AuthAuthenticated(user));
     } catch (error) {
       emit(AuthFailure(ErrorMapper.from(error).message));
     }
@@ -79,6 +80,16 @@ class AuthCubit extends Cubit<AuthState> {
     emit(const AuthLoading());
     try {
       final user = await _login(identifier, password);
+      emit(AuthAuthenticated(user));
+    } catch (error) {
+      emit(AuthFailure(ErrorMapper.from(error).message));
+    }
+  }
+
+  Future<void> loginWithGoogle(String idToken) async {
+    emit(const AuthLoading());
+    try {
+      final user = await _repository.loginWithGoogle(idToken);
       emit(AuthAuthenticated(user));
     } catch (error) {
       emit(AuthFailure(ErrorMapper.from(error).message));
@@ -114,5 +125,20 @@ class AuthCubit extends Cubit<AuthState> {
       await _logout();
     } catch (_) {}
     emit(const AuthUnauthenticated());
+  }
+
+  Future<void> confirmEmail(String token) async {
+    final user = _repository.currentUser;
+    if (user == null) {
+      throw StateError('Inicia sesión para confirmar el correo.');
+    }
+    try {
+      await _repository.confirmEmail(user.id, token.trim());
+      await _restoreSession();
+      final refreshedUser = _repository.currentUser;
+      if (refreshedUser != null) emit(AuthAuthenticated(refreshedUser));
+    } catch (error) {
+      throw ErrorMapper.from(error);
+    }
   }
 }

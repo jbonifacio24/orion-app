@@ -5,9 +5,10 @@ import '../../domain/entities/workshop.dart';
 import '../utils/workshop_coordinates.dart';
 
 class WorkshopCard extends StatelessWidget {
-  const WorkshopCard({required this.workshop, required this.onTap, super.key});
+  const WorkshopCard({required this.workshop, required this.onTap, this.onDelete, super.key});
   final Workshop workshop;
   final VoidCallback onTap;
+  final VoidCallback? onDelete;
 
   @override
   Widget build(BuildContext context) {
@@ -42,6 +43,7 @@ class WorkshopCard extends StatelessWidget {
                   Text(AppLocalizations.noReviews, style: Theme.of(context).textTheme.bodySmall),
                 const Spacer(),
                 Icon(hasLocation ? Icons.location_on_outlined : Icons.location_off_outlined, size: 18),
+                if (onDelete != null) IconButton(tooltip: 'Eliminar taller', onPressed: onDelete, icon: const Icon(Icons.delete_outline)),
               ]),
             ])),
           ]),

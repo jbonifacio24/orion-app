@@ -1,17 +1,22 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Options;
 using MotoHub.Application.Chat;
 using MotoHub.Application.Errors;
 using MotoHub.Application.Marketplace;
 using MotoHub.Domain;
 using MotoHub.Infrastructure.Persistence;
+using MotoHub.Infrastructure.Storage;
 
 namespace MotoHub.Infrastructure.Chat;
 
 public sealed class ChatService(
     MotoHubDbContext dbContext,
     IChatRealtimeNotifier? realtimeNotifier = null,
-    ILogger<ChatService>? logger = null) : IChatService
+    ILogger<ChatService>? logger = null,
+    IHostEnvironment? environment = null,
+    IOptions<ProductImageStorageOptions>? storageOptions = null) : IChatService
 {
     private const int MaxPageSize = 50;
 
@@ -19,7 +24,8 @@ public sealed class ChatService(
     {
         var participants = await dbContext.ConversationParticipants
             .AsNoTrackingWithIdentityResolution()
-            .Where(x => x.UserId == userId && x.LeftAt == null && x.Conversation.Type == ConversationType.Direct)
+            .Where(x => x.UserId == userId && x.LeftAt == null &&
+                        (x.Conversation.Type == ConversationType.Direct || x.Conversation.Type == ConversationType.Group))
             .Include(x => x.Conversation)
                 .ThenInclude(x => x.Participants)
                     .ThenInclude(x => x.User)
@@ -31,9 +37,9 @@ public sealed class ChatService(
                 x.Conversation.Participants
                     .Where(participant => participant.UserId != userId && participant.LeftAt == null)
                     .Select(participant => participant.User)
-                    .SingleOrDefault()!,
+                    .FirstOrDefault()!,
                 x))
-            .Where(x => x.OtherParticipant is not null)
+            .Where(x => x.Conversation.Type == ConversationType.Group || x.OtherParticipant is not null)
             .OrderByDescending(x => x.Conversation.LastMessageAt ?? x.Conversation.CreatedAt)
             .ThenByDescending(x => x.Conversation.Id)
             .ToArray();
@@ -47,9 +53,13 @@ public sealed class ChatService(
             x.Conversation.Type,
             x.Conversation.CreatedAt,
             x.Conversation.LastMessageAt,
-            ToParticipantDto(x.OtherParticipant),
+            x.OtherParticipant is null
+                ? new ConversationParticipantResponseDto(Guid.Empty, "Grupo", null)
+                : ToParticipantDto(x.OtherParticipant),
             lastMessages.GetValueOrDefault(x.Conversation.Id),
-            unreadCounts.GetValueOrDefault(x.Conversation.Id))).ToArray();
+            unreadCounts.GetValueOrDefault(x.Conversation.Id),
+                x.Conversation.Type == ConversationType.Group ? x.Conversation.Title ?? "Grupo" : null,
+            x.Conversation.Participants.Count(participant => participant.LeftAt == null))).ToArray();
     }
 
         public async Task<ConversationResponseDto> GetOrCreateDirectAsync(
@@ -104,6 +114,45 @@ public sealed class ChatService(
             return await ToConversationDtoAsync(conversation, userId, cancellationToken);
         }
 
+        public async Task<MessageResponseDto> SendAttachmentAsync(Guid userId, Guid conversationId, Stream content, string fileName, string contentType, long length, CancellationToken cancellationToken)
+        {
+            if (length <= 0 || length > 15 * 1024 * 1024) throw new ValidationException("El archivo debe pesar entre 1 byte y 15 MB.");
+            var normalizedType = contentType.Trim().ToLowerInvariant();
+            var isImage = normalizedType is "image/jpeg" or "image/png" or "image/webp";
+            var isAudio = normalizedType is "audio/mpeg" or "audio/ogg" or "audio/wav" or "audio/webm";
+            if (!isImage && !isAudio) throw new ValidationException("Solo se permiten imágenes JPG, PNG, WebP o audio MP3, OGG, WAV y WebM.");
+            if (environment is null || storageOptions is null) throw new InvalidOperationException("El almacenamiento de adjuntos no está configurado.");
+
+            var conversation = await GetActiveConversationAsync(userId, conversationId, cancellationToken);
+            var sender = await dbContext.Users.SingleOrDefaultAsync(x => x.Id == userId, cancellationToken)
+                ?? throw new ResourceNotFoundException("El usuario actual no existe.");
+            var extension = Path.GetExtension(fileName).ToLowerInvariant();
+            var allowedExtensions = isImage ? new[] { ".jpg", ".jpeg", ".png", ".webp" } : new[] { ".mp3", ".ogg", ".wav", ".webm" };
+            if (!allowedExtensions.Contains(extension, StringComparer.OrdinalIgnoreCase)) throw new ValidationException("La extensión del archivo no coincide con su tipo permitido.");
+            var header = new byte[12];
+            var read = await content.ReadAsync(header.AsMemory(), cancellationToken);
+            if (!HasValidSignature(header, read, isImage)) throw new ValidationException("La firma del archivo no coincide con su tipo declarado.");
+            content.Position = 0;
+            var root = Path.GetFullPath(Path.Combine(environment.ContentRootPath, storageOptions.Value.StorageRoot));
+            var directory = Path.Combine(root, "chat", conversationId.ToString("N"));
+            Directory.CreateDirectory(directory);
+            var storedName = $"{Guid.NewGuid():N}{extension}";
+            var fullPath = Path.Combine(directory, storedName);
+            await using (var target = new FileStream(fullPath, FileMode.CreateNew, FileAccess.Write, FileShare.None)) await content.CopyToAsync(target, cancellationToken);
+            var storageKey = $"chat/{conversationId:N}/{storedName}";
+            var url = $"{storageOptions.Value.PublicBasePath.TrimEnd('/')}/{storageKey}";
+            var sentAt = DateTimeOffset.UtcNow;
+            var message = new Message { ConversationId = conversation.Id, SenderUserId = userId, Content = fileName, MessageType = isImage ? MessageType.Image : MessageType.File, SentAt = sentAt, Sender = sender };
+            message.Attachments.Add(new MessageAttachment { MessageId = message.Id, StorageKey = storageKey, Url = url, FileName = fileName, ContentType = normalizedType, SizeBytes = length });
+            conversation.LastMessageAt = sentAt;
+            dbContext.Messages.Add(message);
+            try { await dbContext.SaveChangesAsync(cancellationToken); }
+            catch { if (File.Exists(fullPath)) File.Delete(fullPath); throw; }
+            var response = ToMessageDto(message);
+            if (realtimeNotifier is not null) await realtimeNotifier.NotifyMessageReceivedAsync(response, cancellationToken);
+            return response;
+        }
+
         public async Task<PagedResponse<MessageResponseDto>> GetMessagesAsync(
             Guid userId,
             Guid conversationId,
@@ -111,12 +160,13 @@ public sealed class ChatService(
             CancellationToken cancellationToken)
         {
             ValidateQuery(query);
-            await GetActiveDirectConversationAsync(userId, conversationId, cancellationToken);
+            await GetActiveConversationAsync(userId, conversationId, cancellationToken);
 
             var messages = dbContext.Messages
                 .AsNoTracking()
                 .Where(x => x.ConversationId == conversationId)
-                .Include(x => x.Sender);
+                .Include(x => x.Sender)
+                .Include(x => x.Attachments);
             var totalCount = await messages.CountAsync(cancellationToken);
             var items = await messages
                 .OrderByDescending(x => x.SentAt)
@@ -142,7 +192,7 @@ public sealed class ChatService(
                 throw new ValidationException("Content es obligatorio y debe tener como máximo 10000 caracteres.");
             }
 
-            var conversation = await GetActiveDirectConversationAsync(userId, conversationId, cancellationToken);
+            var conversation = await GetActiveConversationAsync(userId, conversationId, cancellationToken);
             var sender = await dbContext.Users
                 .SingleOrDefaultAsync(x => x.Id == userId, cancellationToken)
                 ?? throw new ResourceNotFoundException("El usuario actual no existe.");
@@ -180,7 +230,8 @@ public sealed class ChatService(
         {
             var participant = await dbContext.ConversationParticipants
                 .SingleOrDefaultAsync(x => x.ConversationId == conversationId && x.UserId == userId &&
-                                           x.LeftAt == null && x.Conversation.Type == ConversationType.Direct,
+                                           x.LeftAt == null &&
+                                           (x.Conversation.Type == ConversationType.Direct || x.Conversation.Type == ConversationType.Group),
                     cancellationToken)
                 ?? throw new ResourceNotFoundException("La conversación no existe.");
 
@@ -189,11 +240,25 @@ public sealed class ChatService(
         }
 
         public async Task EnsureActiveParticipantAsync(Guid userId, Guid conversationId, CancellationToken cancellationToken)
-            => await GetActiveDirectConversationAsync(userId, conversationId, cancellationToken);
+            => await GetActiveConversationAsync(userId, conversationId, cancellationToken);
 
-        private async Task<Conversation> GetActiveDirectConversationAsync(Guid userId, Guid conversationId, CancellationToken cancellationToken)
+        public async Task<RouteLocationResponseDto> PublishRouteLocationAsync(Guid userId, Guid conversationId, double latitude, double longitude, CancellationToken cancellationToken)
+        {
+            if (latitude is < -90 or > 90 || longitude is < -180 or > 180)
+                throw new ValidationException("Las coordenadas de ubicación no son válidas.");
+            var conversation = await dbContext.Conversations
+                .SingleOrDefaultAsync(x => x.Id == conversationId && x.Type == ConversationType.Group &&
+                    x.Participants.Any(participant => participant.UserId == userId && participant.LeftAt == null), cancellationToken)
+                ?? throw new ResourceNotFoundException("La ruta no existe o no eres participante.");
+            var user = await dbContext.Users.SingleOrDefaultAsync(x => x.Id == userId, cancellationToken)
+                ?? throw new ResourceNotFoundException("El usuario actual no existe.");
+            return new RouteLocationResponseDto(conversation.Id, user.Id, DisplayName(user), latitude, longitude, DateTimeOffset.UtcNow);
+        }
+
+        private async Task<Conversation> GetActiveConversationAsync(Guid userId, Guid conversationId, CancellationToken cancellationToken)
             => await dbContext.Conversations
-                .SingleOrDefaultAsync(x => x.Id == conversationId && x.Type == ConversationType.Direct &&
+                .SingleOrDefaultAsync(x => x.Id == conversationId &&
+                                           (x.Type == ConversationType.Direct || x.Type == ConversationType.Group) &&
                                            x.Participants.Any(participant => participant.UserId == userId && participant.LeftAt == null),
                     cancellationToken)
                ?? throw new ResourceNotFoundException("La conversación no existe.");
@@ -203,19 +268,22 @@ public sealed class ChatService(
             var otherParticipant = conversation.Participants
                 .Where(x => x.UserId != userId && x.LeftAt == null)
                 .Select(x => x.User)
-                .SingleOrDefault()
-                ?? throw new ResourceNotFoundException("La conversación no tiene un participante válido.");
+                .FirstOrDefault();
             var lastMessageEntity = await dbContext.Messages
                 .AsNoTracking()
                 .Where(x => x.ConversationId == conversation.Id)
                 .Include(x => x.Sender)
+                .Include(x => x.Attachments)
                 .OrderByDescending(x => x.SentAt)
                 .ThenByDescending(x => x.Id)
                 .FirstOrDefaultAsync(cancellationToken);
             var currentParticipant = conversation.Participants.Single(x => x.UserId == userId && x.LeftAt == null);
             var unreadCount = await GetUnreadCountAsync(conversation.Id, userId, currentParticipant.LastReadAt ?? currentParticipant.JoinedAt, cancellationToken);
             return new ConversationResponseDto(conversation.Id, conversation.Type, conversation.CreatedAt, conversation.LastMessageAt,
-                ToParticipantDto(otherParticipant), lastMessageEntity is null ? null : ToMessageDto(lastMessageEntity), unreadCount);
+                otherParticipant is null ? new ConversationParticipantResponseDto(Guid.Empty, "Grupo", null) : ToParticipantDto(otherParticipant),
+                lastMessageEntity is null ? null : ToMessageDto(lastMessageEntity), unreadCount,
+                conversation.Type == ConversationType.Group ? conversation.Title ?? "Grupo" : null,
+                conversation.Participants.Count(x => x.LeftAt == null));
         }
 
         private async Task<Dictionary<Guid, MessageResponseDto>> GetLastMessagesAsync(Guid[] conversationIds, CancellationToken cancellationToken)
@@ -225,6 +293,7 @@ public sealed class ChatService(
                 .AsNoTracking()
                 .Where(x => conversationIds.Contains(x.ConversationId))
                 .Include(x => x.Sender)
+                .Include(x => x.Attachments)
                 .OrderByDescending(x => x.SentAt)
                 .ThenByDescending(x => x.Id)
                 .ToListAsync(cancellationToken);
@@ -257,7 +326,18 @@ public sealed class ChatService(
 
         private static MessageResponseDto ToMessageDto(Message message)
             => new(message.Id, message.ConversationId, message.SenderUserId, DisplayName(message.Sender),
-                message.Sender.ProfileImageUrl, message.Content, message.MessageType, message.SentAt, null);
+                message.Sender.ProfileImageUrl, message.Content, message.MessageType, message.SentAt, message.ReplyToMessageId,
+                message.Attachments.Select(attachment => new MessageAttachmentResponseDto(attachment.Id, attachment.Url, attachment.FileName, attachment.ContentType, attachment.SizeBytes)).ToArray());
+
+        private static bool HasValidSignature(byte[] header, int length, bool isImage)
+        {
+            if (isImage && length >= 3 && header[0] == 0xff && header[1] == 0xd8 && header[2] == 0xff) return true;
+            if (isImage && length >= 8 && header[..8].SequenceEqual(new byte[] { 137, 80, 78, 71, 13, 10, 26, 10 })) return true;
+            if (isImage && length >= 12 && header[..4].SequenceEqual("RIFF"u8.ToArray()) && header[8..12].SequenceEqual("WEBP"u8.ToArray())) return true;
+            if (!isImage && length >= 4 && header[..4].SequenceEqual("OggS"u8.ToArray())) return true;
+            if (!isImage && length >= 4 && header[..4].SequenceEqual("RIFF"u8.ToArray())) return true;
+            return !isImage && length >= 3 && header[0] == 0x49 && header[1] == 0x44 && header[2] == 0x33;
+        }
 
         private static string DisplayName(User user)
         {
@@ -275,6 +355,6 @@ public sealed class ChatService(
 
         private sealed record ConversationListItem(
             Conversation Conversation,
-            User OtherParticipant,
+            User? OtherParticipant,
             ConversationParticipant CurrentParticipant);
 }

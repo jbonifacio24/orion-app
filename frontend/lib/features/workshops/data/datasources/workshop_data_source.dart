@@ -8,12 +8,16 @@ class WorkshopDataSource {
   final Dio _dio;
 
   Future<PagedWorkshopsModel> getWorkshops(WorkshopFilters filters, {int page = 1}) async {
-    final response = await _dio.get<Map<String, dynamic>>('/api/workshops', queryParameters: filters.toQuery(page: page));
+    final response = await _dio.get<Map<String, dynamic>>('/workshops', queryParameters: filters.toQuery(page: page));
     return PagedWorkshopsModel.fromJson(response.data!);
   }
 
   Future<WorkshopDetailModel> getWorkshopDetail(String id) async {
-    final response = await _dio.get<Map<String, dynamic>>('/api/workshops/$id');
+    final response = await _dio.get<Map<String, dynamic>>('/workshops/$id');
     return WorkshopDetailModel.fromJson(response.data!);
+  }
+
+  Future<void> deleteWorkshop(String id) async {
+    await _dio.delete<void>('/workshops/$id');
   }
 }

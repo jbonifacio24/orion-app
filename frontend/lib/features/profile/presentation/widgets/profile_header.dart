@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../../core/network/media_url_resolver.dart';
 import '../../domain/entities/user_profile.dart';
 
 class ProfileHeader extends StatelessWidget {
@@ -16,7 +17,7 @@ class ProfileHeader extends StatelessWidget {
           child: profile.profileImageUrl?.trim().isNotEmpty == true
               ? ClipOval(
                   child: Image.network(
-                    profile.profileImageUrl!,
+                MediaUrlResolver.resolve(profile.profileImageUrl!),
                     width: 88,
                     height: 88,
                     fit: BoxFit.cover,

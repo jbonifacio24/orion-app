@@ -6,4 +6,5 @@ public interface IWorkshopService
 {
     Task<PagedResponse<WorkshopListItemDto>> GetWorkshopsAsync(WorkshopListQueryDto query, CancellationToken cancellationToken);
     Task<WorkshopDetailResponseDto> GetWorkshopByIdAsync(Guid workshopId, CancellationToken cancellationToken);
+    Task DeleteWorkshopAsync(Guid workshopId, CancellationToken cancellationToken);
 }

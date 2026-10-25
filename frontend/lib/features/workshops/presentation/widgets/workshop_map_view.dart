@@ -3,6 +3,7 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 
 import '../../../../core/localization/app_localizations.dart';
+import '../../../../core/widgets/current_location_map_button.dart';
 import '../../domain/entities/workshop.dart';
 import '../models/workshop_map_marker_model.dart';
 
@@ -20,11 +21,18 @@ class _WorkshopMapViewState extends State<WorkshopMapView> {
   final _mapController = MapController();
   bool _mapReady = false;
   String _markerSignature = '';
+  LatLng? _currentLocation;
 
   @override
   void initState() {
     super.initState();
     _markerSignature = _signature(widget.workshops);
+  }
+
+  @override
+  void dispose() {
+    _mapController.dispose();
+    super.dispose();
   }
 
   @override
@@ -57,7 +65,8 @@ class _WorkshopMapViewState extends State<WorkshopMapView> {
               userAgentPackageName: 'com.motohub.app',
             ),
             MarkerLayer(
-              markers: markers
+              markers: [
+                ...markers
                   .map(
                     (marker) => Marker(
                       point: LatLng(marker.latitude, marker.longitude),
@@ -74,12 +83,28 @@ class _WorkshopMapViewState extends State<WorkshopMapView> {
                       ),
                     ),
                   )
-                  .toList(growable: false),
+                  ,
+                if (_currentLocation != null)
+                  Marker(
+                    point: _currentLocation!,
+                    width: 48,
+                    height: 48,
+                    child: const Icon(Icons.my_location_rounded, color: Colors.blue, size: 34),
+                  ),
+              ],
             ),
             const RichAttributionWidget(
               attributions: [TextSourceAttribution('OpenStreetMap contributors')],
             ),
           ],
+        ),
+        Positioned(
+          right: 16,
+          bottom: 16,
+          child: CurrentLocationMapButton(
+            mapController: _mapController,
+            onLocationFound: (location) => setState(() => _currentLocation = location),
+          ),
         ),
         if (markers.isEmpty)
           Align(

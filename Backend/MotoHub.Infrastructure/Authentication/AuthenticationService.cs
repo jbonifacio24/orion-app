@@ -14,6 +14,7 @@ public sealed class AuthenticationService(
     SignInManager<MotoHubIdentityUser> signInManager,
     JwtTokenService jwtTokenService,
     IEmailSender emailSender,
+    IGoogleIdentityTokenValidator googleIdentityTokenValidator,
     IOptions<JwtOptions> jwtOptions,
     IOptions<AuthOptions> authOptions,
     ISessionRevocationService sessionRevocationService) : IAuthenticationService
@@ -75,6 +76,79 @@ public sealed class AuthenticationService(
             throw new AuthenticationException("Email confirmation is required.", 403);
         }
         return await IssueSessionAsync(user, ipAddress, cancellationToken);
+    }
+
+    public async Task<AuthResponse> LoginWithGoogleAsync(GoogleLoginRequest request, string? ipAddress, CancellationToken cancellationToken)
+    {
+        var googleIdentity = await googleIdentityTokenValidator.ValidateAsync(request.IdToken, cancellationToken);
+        if (!googleIdentity.EmailVerified)
+        {
+            throw new AuthenticationException("A verified Google email is required.", 401);
+        }
+
+        await using var transaction = await dbContext.Database.BeginTransactionAsync(cancellationToken);
+        var identityUser = await userManager.FindByLoginAsync("Google", googleIdentity.Subject);
+        if (identityUser is null)
+        {
+            identityUser = await userManager.FindByEmailAsync(googleIdentity.Email);
+            if (identityUser is null)
+            {
+                var userName = await CreateGoogleUserNameAsync(googleIdentity.Email);
+                identityUser = new MotoHubIdentityUser
+                {
+                    Id = Guid.NewGuid(),
+                    UserName = userName,
+                    Email = googleIdentity.Email,
+                    EmailConfirmed = true
+                };
+                EnsureSuccess(await userManager.CreateAsync(identityUser), 409);
+
+                dbContext.Users.Add(new User(identityUser.Id)
+                {
+                    UserName = identityUser.UserName!,
+                    NormalizedUserName = userManager.NormalizeName(identityUser.UserName)!,
+                    Email = identityUser.Email!,
+                    NormalizedEmail = userManager.NormalizeEmail(identityUser.Email)!,
+                    FirstName = googleIdentity.GivenName,
+                    LastName = googleIdentity.FamilyName,
+                    EmailConfirmed = true
+                });
+                await dbContext.SaveChangesAsync(cancellationToken);
+                await EnsureRoleAsync(authOptions.Value.DefaultRole, cancellationToken);
+                EnsureSuccess(await userManager.AddToRoleAsync(identityUser, authOptions.Value.DefaultRole));
+            }
+            else if (!await IsActiveAsync(identityUser.Id, cancellationToken))
+            {
+                throw new AuthenticationException("User is not available.", 401);
+            }
+
+            EnsureSuccess(await userManager.AddLoginAsync(
+                identityUser,
+                new UserLoginInfo("Google", googleIdentity.Subject, "Google")), 409);
+        }
+
+        if (!await IsActiveAsync(identityUser.Id, cancellationToken))
+        {
+            throw new AuthenticationException("User is not available.", 401);
+        }
+
+        if (!await userManager.IsEmailConfirmedAsync(identityUser))
+        {
+            identityUser.EmailConfirmed = true;
+            EnsureSuccess(await userManager.UpdateAsync(identityUser));
+        }
+
+        var profile = await dbContext.Users.IgnoreQueryFilters()
+            .SingleOrDefaultAsync(x => x.Id == identityUser.Id, cancellationToken)
+            ?? throw new AuthenticationException("User profile is not available.", 401);
+        if (!profile.EmailConfirmed)
+        {
+            profile.EmailConfirmed = true;
+            await dbContext.SaveChangesAsync(cancellationToken);
+        }
+
+        await transaction.CommitAsync(cancellationToken);
+        return await IssueSessionAsync(identityUser, ipAddress, cancellationToken);
     }
 
     public async Task<AuthResponse> RefreshAsync(RefreshTokenRequest request, string? ipAddress, CancellationToken cancellationToken)
@@ -212,6 +286,21 @@ public sealed class AuthenticationService(
         AdminSecurity.EnsureAutomaticRoleIsNotAdmin(role);
         if (await roleManager.RoleExistsAsync(role)) return;
         EnsureSuccess(await roleManager.CreateAsync(new MotoHubIdentityRole { Name = role }));
+    }
+
+    private async Task<string> CreateGoogleUserNameAsync(string email)
+    {
+        var localPart = email[..email.IndexOf('@')];
+        var baseName = new string(localPart.Where(char.IsLetterOrDigit).ToArray());
+        if (string.IsNullOrWhiteSpace(baseName)) baseName = "rider";
+
+        var userName = baseName;
+        while (await userManager.FindByNameAsync(userName) is not null)
+        {
+            userName = $"{baseName}-{Guid.NewGuid():N}";
+        }
+
+        return userName;
     }
 
     private Task<int> RevokeAllAsync(Guid userId, string reason, CancellationToken cancellationToken)

@@ -7,6 +7,13 @@ public sealed record NewsListQueryDto(
     int PageSize = 20,
     Guid? CategoryId = null);
 
+public sealed record CreateNewsRequest(
+    string Title,
+    string? Summary,
+    string Content,
+    string? FeaturedImageUrl,
+    IReadOnlyCollection<Guid>? CategoryIds = null);
+
 public sealed record NewsCategoryResponse(
     Guid Id,
     string Name,

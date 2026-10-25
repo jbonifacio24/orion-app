@@ -4,12 +4,16 @@ using MotoHub.Application.Marketplace;
 using MotoHub.Application.News;
 using MotoHub.Domain;
 using MotoHub.Infrastructure.Persistence;
+using NewsEntity = MotoHub.Domain.News;
 
 namespace MotoHub.Infrastructure.News;
 
 public sealed class NewsService(MotoHubDbContext dbContext) : INewsService
 {
     private const int MaxPageSize = 50;
+    private const int MaxTitleLength = 250;
+    private const int MaxSummaryLength = 1000;
+    private const int MaxContentLength = 50000;
 
     public async Task<PagedResponse<NewsSummaryResponse>> GetFeedAsync(
         NewsListQueryDto query,
@@ -132,6 +136,86 @@ public sealed class NewsService(MotoHubDbContext dbContext) : INewsService
             .ThenBy(x => x.Id)
             .Select(x => new NewsCategoryResponse(x.Id, x.Name, x.Slug))
             .ToArrayAsync(cancellationToken);
+
+    public async Task<NewsDetailResponse> CreateAsync(
+        Guid authorUserId,
+        CreateNewsRequest request,
+        CancellationToken cancellationToken)
+    {
+        var title = NormalizeRequired(request.Title, MaxTitleLength, "El título es obligatorio.");
+        var content = NormalizeRequired(request.Content, MaxContentLength, "El contenido es obligatorio.");
+        var summary = NormalizeOptional(request.Summary, MaxSummaryLength);
+        var imageUrl = NormalizeOptional(request.FeaturedImageUrl, 2000);
+        var slug = await CreateUniqueSlugAsync(title, cancellationToken);
+        var news = new NewsEntity
+        {
+            AuthorUserId = authorUserId,
+            Title = title,
+            Slug = slug,
+            Summary = summary,
+            Content = content,
+            FeaturedImageUrl = imageUrl,
+            Status = NewsStatus.Published,
+            PublishedAt = DateTimeOffset.UtcNow
+        };
+
+        var categoryIds = (request.CategoryIds ?? Array.Empty<Guid>()).Distinct().ToArray();
+        if (categoryIds.Length > 0)
+        {
+            var validCategoryIds = await dbContext.NewsCategories
+                .Where(x => categoryIds.Contains(x.Id) && x.IsActive && !x.IsDeleted)
+                .Select(x => x.Id)
+                .ToArrayAsync(cancellationToken);
+            if (validCategoryIds.Length != categoryIds.Length)
+                throw new ValidationException("Una o más categorías no son válidas.");
+            foreach (var categoryId in validCategoryIds)
+                news.Categories.Add(new NewsCategoryAssignment { NewsCategoryId = categoryId });
+        }
+
+        dbContext.News.Add(news);
+        await dbContext.SaveChangesAsync(cancellationToken);
+        return await GetByIdAsync(news.Id, cancellationToken);
+    }
+
+    private async Task<string> CreateUniqueSlugAsync(string title, CancellationToken cancellationToken)
+    {
+        var baseSlug = Slugify(title);
+        var slug = baseSlug;
+        var suffix = 2;
+        while (await dbContext.News.IgnoreQueryFilters().AnyAsync(x => x.Slug == slug, cancellationToken))
+            slug = $"{baseSlug}-{suffix++}";
+        return slug;
+    }
+
+    private static string NormalizeRequired(string? value, int maxLength, string emptyMessage)
+    {
+        var normalized = value?.Trim() ?? string.Empty;
+        if (normalized.Length == 0) throw new ValidationException(emptyMessage);
+        if (normalized.Length > maxLength) throw new ValidationException($"El texto no puede superar los {maxLength} caracteres.");
+        return normalized;
+    }
+
+    private static string? NormalizeOptional(string? value, int maxLength)
+    {
+        var normalized = value?.Trim();
+        if (string.IsNullOrWhiteSpace(normalized)) return null;
+        if (normalized.Length > maxLength) throw new ValidationException($"El texto no puede superar los {maxLength} caracteres.");
+        return normalized;
+    }
+
+    private static string Slugify(string value)
+    {
+        var normalized = value.Normalize(System.Text.NormalizationForm.FormD);
+        var builder = new System.Text.StringBuilder();
+        foreach (var character in normalized)
+        {
+            var category = System.Globalization.CharUnicodeInfo.GetUnicodeCategory(character);
+            if (category == System.Globalization.UnicodeCategory.NonSpacingMark) continue;
+            builder.Append(char.IsLetterOrDigit(character) ? char.ToLowerInvariant(character) : '-');
+        }
+        var slug = System.Text.RegularExpressions.Regex.Replace(builder.ToString(), "-+", "-").Trim('-');
+        return string.IsNullOrEmpty(slug) ? $"noticia-{Guid.NewGuid():N}" : slug;
+    }
 
     private static void ValidateQuery(NewsListQueryDto query)
     {

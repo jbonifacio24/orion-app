@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../../../../core/widgets/app_loading.dart';
 import '../cubit/profile_cubit.dart';
 import '../widgets/profile_form.dart';
 
@@ -21,7 +22,7 @@ class EditProfilePage extends StatelessWidget {
                       ? state.profile
                       : null;
           if (state is ProfileInitial || state is ProfileLoading) {
-            return const Center(child: CircularProgressIndicator());
+            return const AppLoading();
           }
           if (profile == null) {
             final message = state is ProfileFailure ? state.message : 'Perfil no disponible.';

@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:motohub/features/chat/domain/entities/chat_entities.dart';
 import 'package:motohub/features/chat/domain/repositories/chat_realtime_repository.dart';
@@ -165,6 +166,9 @@ class _FakeChatRepository implements ChatRepository {
     lastSent = _message('sent-message', conversationId, DateTime.utc(2026, 1, 3));
     return lastSent!;
   }
+
+  @override
+  Future<ChatMessage> sendAttachment({required String conversationId, required PlatformFile file}) async => _message('attachment', conversationId, DateTime.utc(2026, 1, 3));
 
   @override
   Future<void> markConversationRead(String conversationId) async {}

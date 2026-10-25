@@ -5,4 +5,5 @@ import '../entities/workshop_filters.dart';
 abstract interface class WorkshopRepository {
   Future<PagedWorkshops> getWorkshops(WorkshopFilters filters, {int page = 1});
   Future<WorkshopDetail> getWorkshopDetail(String id);
+  Future<void> deleteWorkshop(String id);
 }

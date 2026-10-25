@@ -7,13 +7,13 @@ class ProfileDataSource {
   final Dio _dio;
 
   Future<ProfileModel> getCurrent() async {
-    final response = await _dio.get<Map<String, dynamic>>('/api/users/me');
+    final response = await _dio.get<Map<String, dynamic>>('/users/me');
     return ProfileModel.fromJson(response.data!);
   }
 
   Future<ProfileModel> update(UpdateProfileRequestModel request) async {
     final response = await _dio.put<Map<String, dynamic>>(
-      '/api/users/me',
+      '/users/me',
       data: request.toJson(),
     );
     return ProfileModel.fromJson(response.data!);

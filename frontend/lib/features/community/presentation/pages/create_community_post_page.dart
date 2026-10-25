@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/localization/app_localizations.dart';
+import '../../../../core/widgets/app_loading.dart';
 import '../cubit/community_feed_cubit.dart';
 import '../cubit/community_feed_state.dart';
 
@@ -83,7 +84,7 @@ class _CreateCommunityPostPageState extends State<CreateCommunityPostPage> {
                   FilledButton.icon(
                     onPressed: canSubmit ? _submit : null,
                     icon: state.isSubmitting
-                        ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                        ? const AppLoading(compact: true, color: Colors.white)
                         : const Icon(Icons.send_outlined),
                     label: Text(AppLocalizations.communityPublish(locale)),
                   ),

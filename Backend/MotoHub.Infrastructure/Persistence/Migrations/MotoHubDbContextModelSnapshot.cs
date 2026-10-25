@@ -245,6 +245,131 @@ namespace MotoHub.Infrastructure.Persistence.Migrations
                     b.ToTable("ConversationParticipants", (string)null);
                 });
 
+            modelBuilder.Entity("MotoHub.Domain.Delivery", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("BuyerUserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<decimal>("DestinationLatitude")
+                        .HasPrecision(9, 6)
+                        .HasColumnType("decimal(9,6)");
+
+                    b.Property<decimal>("DestinationLongitude")
+                        .HasPrecision(9, 6)
+                        .HasColumnType("decimal(9,6)");
+
+                    b.Property<decimal?>("DriverLatitude")
+                        .HasPrecision(9, 6)
+                        .HasColumnType("decimal(9,6)");
+
+                    b.Property<decimal?>("DriverLongitude")
+                        .HasPrecision(9, 6)
+                        .HasColumnType("decimal(9,6)");
+
+                    b.Property<Guid?>("DriverUserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<decimal?>("PickupLatitude")
+                        .HasPrecision(9, 6)
+                        .HasColumnType("decimal(9,6)");
+
+                    b.Property<decimal?>("PickupLongitude")
+                        .HasPrecision(9, 6)
+                        .HasColumnType("decimal(9,6)");
+
+                    b.Property<Guid>("ProductTransactionId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
+                    b.Property<Guid>("SellerUserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("BuyerUserId");
+
+                    b.HasIndex("DriverUserId");
+
+                    b.HasIndex("ProductTransactionId")
+                        .IsUnique();
+
+                    b.HasIndex("SellerUserId");
+
+                    b.ToTable("Deliveries", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_Deliveries_DestinationCoordinates", "[DestinationLatitude] >= -90 AND [DestinationLatitude] <= 90 AND [DestinationLongitude] >= -180 AND [DestinationLongitude] <= 180");
+
+                            t.HasCheckConstraint("CK_Deliveries_DriverCoordinates", "([DriverLatitude] IS NULL AND [DriverLongitude] IS NULL) OR ([DriverLatitude] >= -90 AND [DriverLatitude] <= 90 AND [DriverLongitude] >= -180 AND [DriverLongitude] <= 180)");
+
+                            t.HasCheckConstraint("CK_Deliveries_PickupCoordinates", "([PickupLatitude] IS NULL AND [PickupLongitude] IS NULL) OR ([PickupLatitude] >= -90 AND [PickupLatitude] <= 90 AND [PickupLongitude] >= -180 AND [PickupLongitude] <= 180)");
+                        });
+                });
+
+            modelBuilder.Entity("MotoHub.Domain.DeliveryDriverProfile", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<bool>("IsAvailable")
+                        .HasColumnType("bit");
+
+                    b.Property<decimal>("Latitude")
+                        .HasPrecision(9, 6)
+                        .HasColumnType("decimal(9,6)");
+
+                    b.Property<decimal>("Longitude")
+                        .HasPrecision(9, 6)
+                        .HasColumnType("decimal(9,6)");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId")
+                        .IsUnique();
+
+                    b.ToTable("DeliveryDriverProfiles", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_DeliveryDriverProfiles_Latitude", "[Latitude] >= -90 AND [Latitude] <= 90");
+
+                            t.HasCheckConstraint("CK_DeliveryDriverProfiles_Longitude", "[Longitude] >= -180 AND [Longitude] <= 180");
+                        });
+                });
+
             modelBuilder.Entity("MotoHub.Domain.Message", b =>
                 {
                     b.Property<Guid>("Id")
@@ -944,14 +1069,26 @@ namespace MotoHub.Infrastructure.Persistence.Migrations
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("bit");
 
+                    b.Property<decimal?>("Latitude")
+                        .HasPrecision(9, 6)
+                        .HasColumnType("decimal(9,6)");
+
                     b.Property<string>("Location")
                         .HasMaxLength(500)
                         .HasColumnType("nvarchar(500)");
+
+                    b.Property<decimal?>("Longitude")
+                        .HasPrecision(9, 6)
+                        .HasColumnType("decimal(9,6)");
 
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasMaxLength(200)
                         .HasColumnType("nvarchar(200)");
+
+                    b.Property<string>("PaymentMethod")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
 
                     b.Property<decimal?>("Price")
                         .HasPrecision(18, 2)
@@ -990,6 +1127,10 @@ namespace MotoHub.Infrastructure.Persistence.Migrations
 
                     b.ToTable("Products", null, t =>
                         {
+                            t.HasCheckConstraint("CK_Products_Latitude", "[Latitude] IS NULL OR ([Latitude] >= -90 AND [Latitude] <= 90)");
+
+                            t.HasCheckConstraint("CK_Products_Longitude", "[Longitude] IS NULL OR ([Longitude] >= -180 AND [Longitude] <= 180)");
+
                             t.HasCheckConstraint("CK_Products_Price", "[Price] IS NULL OR [Price] >= 0");
 
                             t.HasCheckConstraint("CK_Products_StockQuantity", "[StockQuantity] IS NULL OR [StockQuantity] >= 0");
@@ -1175,6 +1316,134 @@ namespace MotoHub.Infrastructure.Persistence.Migrations
                     b.ToTable("ProductReviews", null, t =>
                         {
                             t.HasCheckConstraint("CK_ProductReviews_Rating", "[Rating] BETWEEN 1 AND 5");
+                        });
+                });
+
+            modelBuilder.Entity("MotoHub.Domain.ProductTransaction", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTimeOffset?>("AcceptedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<Guid>("BuyerUserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("CancellationReason")
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<DateTimeOffset?>("CancelledAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<DateTimeOffset?>("CompletedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<string>("Currency")
+                        .IsRequired()
+                        .HasMaxLength(3)
+                        .HasColumnType("nvarchar(3)");
+
+                    b.Property<DateTimeOffset?>("DeliveredAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<decimal>("OfferedAmount")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<DateTimeOffset?>("PaidAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<string>("PaymentMethod")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<Guid>("ProductId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
+                    b.Property<Guid>("SellerUserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ProductId");
+
+                    b.HasIndex("BuyerUserId", "CreatedAt");
+
+                    b.HasIndex("SellerUserId", "CreatedAt");
+
+                    b.ToTable("ProductTransactions", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_ProductTransactions_OfferedAmount", "[OfferedAmount] >= 0");
+                        });
+                });
+
+            modelBuilder.Entity("MotoHub.Domain.ProductTransactionReview", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Comment")
+                        .HasMaxLength(2000)
+                        .HasColumnType("nvarchar(2000)");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<Guid>("ProductTransactionId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("Rating")
+                        .HasColumnType("int");
+
+                    b.Property<Guid>("ReviewedUserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("ReviewerUserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ReviewedUserId");
+
+                    b.HasIndex("ReviewerUserId");
+
+                    b.HasIndex("ProductTransactionId", "ReviewerUserId")
+                        .IsUnique();
+
+                    b.ToTable("ProductTransactionReviews", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_ProductTransactionReviews_Rating", "[Rating] BETWEEN 1 AND 5");
                         });
                 });
 
@@ -1628,6 +1897,94 @@ namespace MotoHub.Infrastructure.Persistence.Migrations
                         {
                             t.HasCheckConstraint("CK_TheftReports_Coordinates", "([Latitude] IS NULL OR [Latitude] BETWEEN -90 AND 90) AND ([Longitude] IS NULL OR [Longitude] BETWEEN -180 AND 180)");
                         });
+                });
+
+            modelBuilder.Entity("MotoHub.Domain.TravelRoute", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("ConversationId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<Guid>("CreatedByUserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTimeOffset?>("DeletedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<DateTimeOffset>("DepartureAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(5000)
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<decimal>("EndLatitude")
+                        .HasPrecision(9, 6)
+                        .HasColumnType("decimal(9,6)");
+
+                    b.Property<decimal>("EndLongitude")
+                        .HasPrecision(9, 6)
+                        .HasColumnType("decimal(9,6)");
+
+                    b.Property<string>("EndName")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("IsPublished")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("PathJson")
+                        .IsRequired()
+                        .HasMaxLength(20000)
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
+                    b.Property<decimal>("StartLatitude")
+                        .HasPrecision(9, 6)
+                        .HasColumnType("decimal(9,6)");
+
+                    b.Property<decimal>("StartLongitude")
+                        .HasPrecision(9, 6)
+                        .HasColumnType("decimal(9,6)");
+
+                    b.Property<string>("StartName")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ConversationId")
+                        .IsUnique();
+
+                    b.HasIndex("CreatedByUserId");
+
+                    b.HasIndex("IsPublished", "DepartureAt");
+
+                    b.ToTable("TravelRoutes", (string)null);
                 });
 
             modelBuilder.Entity("MotoHub.Domain.User", b =>
@@ -2291,6 +2648,51 @@ namespace MotoHub.Infrastructure.Persistence.Migrations
                     b.Navigation("User");
                 });
 
+            modelBuilder.Entity("MotoHub.Domain.Delivery", b =>
+                {
+                    b.HasOne("MotoHub.Domain.User", "Buyer")
+                        .WithMany()
+                        .HasForeignKey("BuyerUserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("MotoHub.Domain.User", "Driver")
+                        .WithMany()
+                        .HasForeignKey("DriverUserId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("MotoHub.Domain.ProductTransaction", "ProductTransaction")
+                        .WithOne("Delivery")
+                        .HasForeignKey("MotoHub.Domain.Delivery", "ProductTransactionId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("MotoHub.Domain.User", "Seller")
+                        .WithMany()
+                        .HasForeignKey("SellerUserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Buyer");
+
+                    b.Navigation("Driver");
+
+                    b.Navigation("ProductTransaction");
+
+                    b.Navigation("Seller");
+                });
+
+            modelBuilder.Entity("MotoHub.Domain.DeliveryDriverProfile", b =>
+                {
+                    b.HasOne("MotoHub.Domain.User", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("User");
+                });
+
             modelBuilder.Entity("MotoHub.Domain.Message", b =>
                 {
                     b.HasOne("MotoHub.Domain.Conversation", "Conversation")
@@ -2579,6 +2981,60 @@ namespace MotoHub.Infrastructure.Persistence.Migrations
                     b.Navigation("Product");
                 });
 
+            modelBuilder.Entity("MotoHub.Domain.ProductTransaction", b =>
+                {
+                    b.HasOne("MotoHub.Domain.User", "Buyer")
+                        .WithMany()
+                        .HasForeignKey("BuyerUserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("MotoHub.Domain.Product", "Product")
+                        .WithMany("Transactions")
+                        .HasForeignKey("ProductId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("MotoHub.Domain.User", "Seller")
+                        .WithMany()
+                        .HasForeignKey("SellerUserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Buyer");
+
+                    b.Navigation("Product");
+
+                    b.Navigation("Seller");
+                });
+
+            modelBuilder.Entity("MotoHub.Domain.ProductTransactionReview", b =>
+                {
+                    b.HasOne("MotoHub.Domain.ProductTransaction", "Transaction")
+                        .WithMany("Reviews")
+                        .HasForeignKey("ProductTransactionId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("MotoHub.Domain.User", "ReviewedUser")
+                        .WithMany()
+                        .HasForeignKey("ReviewedUserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("MotoHub.Domain.User", "Reviewer")
+                        .WithMany()
+                        .HasForeignKey("ReviewerUserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("ReviewedUser");
+
+                    b.Navigation("Reviewer");
+
+                    b.Navigation("Transaction");
+                });
+
             modelBuilder.Entity("MotoHub.Domain.Referral", b =>
                 {
                     b.HasOne("MotoHub.Domain.User", "ReferredUser")
@@ -2688,6 +3144,25 @@ namespace MotoHub.Infrastructure.Persistence.Migrations
                     b.Navigation("Motorcycle");
 
                     b.Navigation("Reporter");
+                });
+
+            modelBuilder.Entity("MotoHub.Domain.TravelRoute", b =>
+                {
+                    b.HasOne("MotoHub.Domain.Conversation", "Conversation")
+                        .WithOne()
+                        .HasForeignKey("MotoHub.Domain.TravelRoute", "ConversationId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("MotoHub.Domain.User", "CreatedByUser")
+                        .WithMany()
+                        .HasForeignKey("CreatedByUserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Conversation");
+
+                    b.Navigation("CreatedByUser");
                 });
 
             modelBuilder.Entity("MotoHub.Domain.UserDevice", b =>
@@ -2927,6 +3402,8 @@ namespace MotoHub.Infrastructure.Persistence.Migrations
             modelBuilder.Entity("MotoHub.Domain.Product", b =>
                 {
                     b.Navigation("Images");
+
+                    b.Navigation("Transactions");
                 });
 
             modelBuilder.Entity("MotoHub.Domain.ProductCategory", b =>
@@ -2934,6 +3411,13 @@ namespace MotoHub.Infrastructure.Persistence.Migrations
                     b.Navigation("Children");
 
                     b.Navigation("Products");
+                });
+
+            modelBuilder.Entity("MotoHub.Domain.ProductTransaction", b =>
+                {
+                    b.Navigation("Delivery");
+
+                    b.Navigation("Reviews");
                 });
 
             modelBuilder.Entity("MotoHub.Domain.Referral", b =>

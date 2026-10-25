@@ -17,6 +17,8 @@ public sealed record RegisterRequest(
 	string? LastName);
 
 public sealed record LoginRequest(string EmailOrUserName, string Password);
+/// <summary>Payload containing a Google ID token obtained by the client.</summary>
+public sealed record GoogleLoginRequest(string IdToken);
 public sealed record RefreshTokenRequest(string RefreshToken);
 public sealed record LogoutRequest(string RefreshToken);
 public sealed record ForgotPasswordRequest(string Email);
@@ -30,6 +32,7 @@ public interface IAuthenticationService
 {
 	Task<AuthResponse> RegisterAsync(RegisterRequest request, string? ipAddress, CancellationToken cancellationToken);
 	Task<AuthResponse> LoginAsync(LoginRequest request, string? ipAddress, CancellationToken cancellationToken);
+	Task<AuthResponse> LoginWithGoogleAsync(GoogleLoginRequest request, string? ipAddress, CancellationToken cancellationToken);
 	Task<AuthResponse> RefreshAsync(RefreshTokenRequest request, string? ipAddress, CancellationToken cancellationToken);
 	Task LogoutAsync(LogoutRequest request, string? ipAddress, CancellationToken cancellationToken);
 	Task ForgotPasswordAsync(ForgotPasswordRequest request, CancellationToken cancellationToken);
@@ -37,6 +40,13 @@ public interface IAuthenticationService
 	Task ChangePasswordAsync(Guid userId, ChangePasswordRequest request, CancellationToken cancellationToken);
 	Task ConfirmEmailAsync(ConfirmEmailRequest request, CancellationToken cancellationToken);
 	Task<AuthUser> GetCurrentUserAsync(Guid userId, CancellationToken cancellationToken);
+}
+
+public sealed record GoogleIdentity(string Subject, string Email, bool EmailVerified, string? GivenName, string? FamilyName);
+
+public interface IGoogleIdentityTokenValidator
+{
+	Task<GoogleIdentity> ValidateAsync(string idToken, CancellationToken cancellationToken);
 }
 
 public interface IOperationalUserAccessService

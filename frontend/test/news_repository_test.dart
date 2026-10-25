@@ -41,7 +41,7 @@ void main() {
     final detail = await repository.getNewsDetail('news/one');
 
     expect(detail.content, 'Full news content');
-    expect(adapter.detailPaths, ['/api/news/news%2Fone']);
+    expect(adapter.detailPaths, ['/news/news%2Fone']);
   });
 
   test('maps REST failures through ErrorMapper', () async {
@@ -67,7 +67,7 @@ class _NewsAdapter implements HttpClientAdapter {
 
   @override
   Future<ResponseBody> fetch(RequestOptions options, Stream<Uint8List>? requestStream, Future<void>? cancelFuture) async {
-    if (options.path == '/api/news') {
+    if (options.path == '/news') {
       feedQueries.add(Map<String, dynamic>.from(options.queryParameters));
       return _jsonResponse({
         'items': [],
@@ -77,13 +77,13 @@ class _NewsAdapter implements HttpClientAdapter {
         'totalPages': 0,
       });
     }
-    if (options.path == '/api/news/categories') {
+    if (options.path == '/news/categories') {
       categoriesCalls++;
       return _jsonResponse([
         {'id': 'cat-1', 'name': 'Rutas', 'slug': 'rutas'},
       ]);
     }
-    if (options.path.startsWith('/api/news/')) {
+    if (options.path.startsWith('/news/')) {
       detailPaths.add(options.path);
       return _jsonResponse({
         'id': 'news-1',

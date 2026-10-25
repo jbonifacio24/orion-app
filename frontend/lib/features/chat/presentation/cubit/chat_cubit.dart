@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:file_picker/file_picker.dart';
 
 import '../../../../core/error/error_mapper.dart';
 import '../../domain/entities/chat_entities.dart';
@@ -84,7 +85,7 @@ class ChatState {
 }
 
 class ChatCubit extends Cubit<ChatState> {
-  ChatCubit(this._getMessages, this._sendMessage, this._markRead, [this._realtime])
+  ChatCubit(this._getMessages, this._sendMessage, this._markRead, [this._realtime, this._sendAttachment])
       : super(const ChatState()) {
     _messageSubscription = _realtime?.messages.listen(_onRealtimeMessage);
     _connectionSubscription = _realtime?.connectionStates.listen(_onConnectionState);
@@ -94,6 +95,7 @@ class ChatCubit extends Cubit<ChatState> {
   final SendMessage _sendMessage;
   final MarkConversationRead _markRead;
   final ChatRealtimeRepository? _realtime;
+  final SendChatAttachment? _sendAttachment;
   StreamSubscription<ChatMessage>? _messageSubscription;
   StreamSubscription<ChatRealtimeConnectionState>? _connectionSubscription;
   Future<void>? _joiningFuture;
@@ -246,6 +248,22 @@ class ChatCubit extends Cubit<ChatState> {
       return true;
     } catch (error) {
       if (!isClosed && requestId == _generation) emit(state.copyWith(isMarkingRead: false, actionFailure: ErrorMapper.from(error).message));
+      return false;
+    }
+  }
+
+  Future<bool> sendAttachment(PlatformFile file) async {
+    final conversationId = state.conversationId;
+    final sender = _sendAttachment;
+    if (conversationId == null || sender == null || state.isSending) return false;
+    emit(state.copyWith(isSending: true, clearActionFailure: true));
+    try {
+      final message = await sender(conversationId: conversationId, file: file);
+      if (isClosed || state.conversationId != conversationId) return false;
+      emit(state.copyWith(items: _merge(state.items, [message]), isSending: false));
+      return true;
+    } catch (error) {
+      if (!isClosed) emit(state.copyWith(isSending: false, actionFailure: ErrorMapper.from(error).message));
       return false;
     }
   }

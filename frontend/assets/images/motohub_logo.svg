@@ -1,0 +1,12 @@
+<svg width="260" height="82" viewBox="0 0 260 82" xmlns="http://www.w3.org/2000/svg">
+  <circle cx="37" cy="42" r="29" fill="#20282A" stroke="#50616A" stroke-width="5"/>
+  <circle cx="37" cy="42" r="23" fill="none" stroke="#AFBDC2" stroke-width="1.5"/>
+  <path d="M37 20v44M15 42h44M21.5 26.5l31 31M52.5 26.5l-31 31" stroke="#AFBDC2" stroke-width="2" stroke-linecap="round"/>
+  <circle cx="37" cy="42" r="5" fill="#B53D32"/>
+  <path d="M58 48c7-2 5-10 10-15" fill="none" stroke="#B53D32" stroke-width="3.5" stroke-linecap="round"/>
+  <path d="M72 18c-6 0-10 4.5-10 10 0 6.5 10 16 10 16s10-9.5 10-16c0-5.5-4-10-10-10Z" fill="#20282A" stroke="#9A6A24" stroke-width="2.5" stroke-linejoin="round"/>
+  <circle cx="72" cy="28" r="3" fill="#FF806D"/>
+  <path d="M96 62h12" stroke="#9A6A24" stroke-width="2" stroke-linecap="round"/>
+  <text x="96" y="39" fill="#F3F2ED" font-family="sans-serif" font-size="25" font-weight="700">MotoHub</text>
+  <text x="114" y="64" fill="#AFBDC2" font-family="sans-serif" font-size="8" font-weight="700" letter-spacing="1.6">RIDE. EXPLORE. CONNECT.</text>
+</svg>

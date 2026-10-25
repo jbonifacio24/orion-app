@@ -26,6 +26,7 @@ import '../../features/marketplace/presentation/cubit/my_products_cubit.dart';
 import '../../features/marketplace/presentation/cubit/product_detail_cubit.dart';
 import '../../features/marketplace/presentation/cubit/product_form_cubit.dart';
 import '../../features/marketplace/presentation/cubit/product_images_cubit.dart';
+import '../../features/marketplace_transactions/presentation/cubit/product_transaction_cubit.dart';
 import '../../features/marketplace/presentation/pages/create_product_page.dart';
 import '../../features/marketplace/presentation/pages/edit_product_page.dart';
 import '../../features/marketplace/presentation/pages/favorites_page.dart';
@@ -33,6 +34,15 @@ import '../../features/marketplace/presentation/pages/marketplace_page.dart';
 import '../../features/marketplace/presentation/pages/my_products_page.dart';
 import '../../features/marketplace/presentation/pages/product_detail_page.dart';
 import '../../features/marketplace/presentation/pages/manage_product_images_page.dart';
+import '../../features/marketplace_transactions/presentation/pages/product_transaction_page.dart';
+import '../../features/delivery/presentation/cubit/delivery_cubit.dart';
+import '../../features/delivery/presentation/pages/delivery_page.dart';
+import '../../features/travel_routes/domain/services/routing_service.dart';
+import '../../features/travel_routes/presentation/cubit/travel_routes_cubit.dart';
+import '../../features/travel_routes/domain/entities/travel_route.dart';
+import '../../features/travel_routes/presentation/pages/create_travel_route_page.dart';
+import '../../features/travel_routes/presentation/pages/travel_routes_page.dart';
+import '../../features/travel_routes/presentation/pages/travel_route_tracking_page.dart';
 import '../../features/workshops/presentation/cubit/workshop_detail_cubit.dart';
 import '../../features/workshops/presentation/cubit/workshops_cubit.dart';
 import '../../features/workshops/presentation/pages/workshop_detail_page.dart';
@@ -52,8 +62,10 @@ import '../../features/community/presentation/pages/community_post_detail_page.d
 import '../../features/community/presentation/pages/create_community_post_page.dart';
 import '../../features/news/presentation/cubit/news_feed_cubit.dart';
 import '../../features/news/presentation/cubit/news_detail_cubit.dart';
+import '../../features/news/presentation/cubit/create_news_cubit.dart';
 import '../../features/news/presentation/pages/news_detail_page.dart';
 import '../../features/news/presentation/pages/news_feed_page.dart';
+import '../../features/news/presentation/pages/create_news_page.dart';
 import '../di/injection.dart';
 import 'route_names.dart';
 import 'router_refresh_notifier.dart';
@@ -114,8 +126,11 @@ GoRouter createAppRouter(AuthCubit authCubit) {
       path: '/conversations/:conversationId',
       builder: (context, state) {
         final conversationId = state.pathParameters['conversationId']!;
-        return BlocProvider(
-          create: (_) => getIt<ChatCubit>(),
+        return MultiBlocProvider(
+          providers: [
+            BlocProvider.value(value: getIt<ConversationsCubit>()),
+            BlocProvider(create: (_) => getIt<ChatCubit>()),
+          ],
           child: ChatPage(conversationId: conversationId),
         );
       },
@@ -151,16 +166,25 @@ GoRouter createAppRouter(AuthCubit authCubit) {
       builder: (context, state) => BlocProvider(create: (_) => getIt<MotorcycleCubit>()..loadMotorcycle(state.pathParameters['id']!), child: EditMotorcyclePage(id: state.pathParameters['id']!)),
     ),
     GoRoute(name: RouteNames.marketplace, path: '/marketplace', builder: (context, state) => MultiBlocProvider(providers: [BlocProvider(create: (_) => getIt<MarketplaceCubit>()), BlocProvider(create: (_) => getIt<CategoriesCubit>())], child: const MarketplacePage())),
-    GoRoute(name: RouteNames.marketplaceProductDetail, path: '/marketplace/products/:id', builder: (context, state) => BlocProvider(create: (_) => getIt<ProductDetailCubit>(), child: ProductDetailPage(id: state.pathParameters['id']!))),
+    GoRoute(name: RouteNames.marketplaceProductDetail, path: '/marketplace/products/:id', builder: (context, state) => MultiBlocProvider(providers: [BlocProvider(create: (_) => getIt<ProductDetailCubit>()), BlocProvider.value(value: getIt<ConversationsCubit>()), BlocProvider(create: (_) => getIt<ProductTransactionCubit>())], child: ProductDetailPage(id: state.pathParameters['id']!))),
     GoRoute(name: RouteNames.marketplaceCreate, path: '/marketplace/create', builder: (context, state) => MultiBlocProvider(providers: [BlocProvider(create: (_) => getIt<CategoriesCubit>()), BlocProvider(create: (_) => getIt<ProductFormCubit>(param1: ProductFormMode.create))], child: const CreateProductPage())),
     GoRoute(name: RouteNames.marketplaceProductEdit, path: '/marketplace/products/:id/edit', builder: (context, state) => MultiBlocProvider(providers: [BlocProvider(create: (_) => getIt<CategoriesCubit>()), BlocProvider(create: (_) => getIt<ProductDetailCubit>())], child: EditProductPage(productId: state.pathParameters['id']!))),
     GoRoute(name: RouteNames.marketplaceProductImages, path: '/marketplace/products/:id/images', builder: (context, state) => BlocProvider(create: (_) => getIt<ProductImagesCubit>(), child: ManageProductImagesPage(productId: state.pathParameters['id']!, fromCreate: state.uri.queryParameters['from'] == 'create'))),
+    GoRoute(name: RouteNames.marketplaceOffer, path: '/marketplace/products/:productId/offer', builder: (context, state) => BlocProvider(create: (_) => getIt<ProductTransactionCubit>(), child: ProductTransactionPage(productId: state.pathParameters['productId']!))),
+    GoRoute(name: RouteNames.marketplaceTransactions, path: '/marketplace/transactions', builder: (context, state) => BlocProvider(create: (_) => getIt<ProductTransactionCubit>(), child: const ProductTransactionPage())),
+    GoRoute(name: RouteNames.marketplaceTransaction, path: '/marketplace/transactions/:id', builder: (context, state) => MultiBlocProvider(providers: [BlocProvider(create: (_) => getIt<ProductTransactionCubit>()), BlocProvider.value(value: getIt<ConversationsCubit>())], child: ProductTransactionPage(transactionId: state.pathParameters['id']!))),
+    GoRoute(name: RouteNames.delivery, path: '/delivery', builder: (context, state) => MultiBlocProvider(providers: [BlocProvider(create: (_) => getIt<ProductTransactionCubit>()), BlocProvider(create: (_) => getIt<DeliveryCubit>()), BlocProvider.value(value: getIt<ConversationsCubit>())], child: DeliveryPage(routingService: getIt<RoutingService>()))),
+    GoRoute(name: RouteNames.travelRoutes, path: '/travel-routes', builder: (context, state) => MultiBlocProvider(providers: [BlocProvider(create: (_) => getIt<TravelRoutesCubit>()), BlocProvider.value(value: getIt<ConversationsCubit>())], child: const TravelRoutesPage())),
+    GoRoute(name: RouteNames.travelRouteCreate, path: '/travel-routes/create', builder: (context, state) => BlocProvider(create: (_) => getIt<TravelRoutesCubit>(), child: CreateTravelRoutePage(routingService: getIt()))),
+    GoRoute(name: RouteNames.travelRouteTrack, path: '/travel-routes/:routeId/track', builder: (context, state) => TravelRouteTrackingPage(route: state.extra! as TravelRoute, realtime: getIt())),
+    GoRoute(name: 'delivery-detail', path: '/delivery/:id', builder: (context, state) => MultiBlocProvider(providers: [BlocProvider(create: (_) => getIt<ProductTransactionCubit>()), BlocProvider(create: (_) => getIt<DeliveryCubit>()), BlocProvider.value(value: getIt<ConversationsCubit>())], child: DeliveryPage(transactionId: state.pathParameters['id']!, routingService: getIt<RoutingService>()))),
     GoRoute(name: RouteNames.myProducts, path: '/my-products', builder: (context, state) => BlocProvider(create: (_) => getIt<MyProductsCubit>(), child: const MyProductsPage())),
     GoRoute(name: RouteNames.favorites, path: '/favorites', builder: (context, state) => BlocProvider(create: (_) => getIt<FavoritesCubit>(), child: const FavoritesPage())),
     GoRoute(name: RouteNames.workshops, path: '/workshops', builder: (context, state) => BlocProvider(create: (_) => getIt<WorkshopsCubit>(), child: const WorkshopsPage())),
     GoRoute(name: RouteNames.workshopDetail, path: '/workshops/:id', builder: (context, state) => BlocProvider(create: (_) => getIt<WorkshopDetailCubit>(), child: WorkshopDetailPage(id: state.pathParameters['id']!))),
     GoRoute(name: RouteNames.community, path: RouteNames.communityPath, builder: (context, state) => BlocProvider(create: (_) => getIt<CommunityFeedCubit>(), child: const CommunityFeedPage())),
     GoRoute(name: RouteNames.news, path: RouteNames.newsPath, builder: (context, state) => BlocProvider(create: (_) => getIt<NewsFeedCubit>(), child: const NewsFeedPage())),
+    GoRoute(name: RouteNames.newsCreate, path: RouteNames.newsCreatePath, builder: (context, state) => BlocProvider(create: (_) => getIt<CreateNewsCubit>(), child: const CreateNewsPage())),
     GoRoute(
       name: RouteNames.newsDetail,
       path: RouteNames.newsDetailPath,

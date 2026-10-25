@@ -15,6 +15,9 @@ class WorkshopRepositoryImpl implements WorkshopRepository {
   @override
   Future<WorkshopDetail> getWorkshopDetail(String id) => _map(() => _dataSource.getWorkshopDetail(id));
 
+  @override
+  Future<void> deleteWorkshop(String id) => _map(() => _dataSource.deleteWorkshop(id));
+
   Future<T> _map<T>(Future<T> Function() action) async {
     try {
       return await action();

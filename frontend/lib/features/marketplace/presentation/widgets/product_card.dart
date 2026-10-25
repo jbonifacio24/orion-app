@@ -23,10 +23,17 @@ class ProductCard extends StatelessWidget {
             const SizedBox(height: 6),
             PriceLabel(price: product.price, currency: product.currency),
             const SizedBox(height: 4),
-            Text(product.status.name, style: Theme.of(context).textTheme.bodySmall),
+            Text(_statusLabel(product.status), style: Theme.of(context).textTheme.bodySmall),
           ])),
         ]),
       ),
     );
   }
+
+  String _statusLabel(ProductStatus status) => switch (status) {
+        ProductStatus.draft => 'Borrador',
+        ProductStatus.active => 'Disponible',
+        ProductStatus.sold => 'Vendido',
+        ProductStatus.archived => 'Archivado',
+      };
 }

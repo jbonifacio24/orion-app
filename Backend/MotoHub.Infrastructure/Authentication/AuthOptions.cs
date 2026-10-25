@@ -9,6 +9,11 @@ public sealed class AuthOptions
     public string DevelopmentUserPassword { get; set; } = "MotoHubDemo2026";
 }
 
+public sealed class GoogleAuthOptions
+{
+    public string? ClientId { get; set; }
+}
+
 public sealed class AdminBootstrapOptions
 {
     public string? UserEmail { get; set; }

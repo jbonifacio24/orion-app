@@ -1,5 +1,8 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using System.IdentityModel.Tokens.Jwt;
+using System.Security.Claims;
+using MotoHub.Application;
 using MotoHub.Application.Marketplace;
 using MotoHub.Application.News;
 
@@ -23,4 +26,21 @@ public sealed class NewsController(INewsService newsService) : ControllerBase
     [HttpGet("categories")]
     public Task<IReadOnlyCollection<NewsCategoryResponse>> GetCategories(CancellationToken cancellationToken)
         => newsService.GetCategoriesAsync(cancellationToken);
+
+    [HttpPost]
+    [Authorize(Policy = AdminSecurity.AdminAccessPolicy)]
+    public Task<NewsDetailResponse> Create(
+        [FromBody] CreateNewsRequest request,
+        CancellationToken cancellationToken)
+        => newsService.CreateAsync(GetCurrentUserId(), request, cancellationToken);
+
+    private Guid GetCurrentUserId()
+    {
+        var value = User.FindFirstValue(ClaimTypes.NameIdentifier)
+            ?? User.FindFirstValue(JwtRegisteredClaimNames.Sub)
+            ?? User.FindFirstValue("sub");
+        if (!Guid.TryParse(value, out var userId))
+            throw new AuthenticationException("El sujeto autenticado no es válido.", 401);
+        return userId;
+    }
 }

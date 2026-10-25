@@ -201,7 +201,7 @@ class _CommentComposerState extends State<_CommentComposer> {
             IconButton(
               tooltip: AppLocalizations.communitySendComment(locale),
               onPressed: widget.isSubmitting ? null : widget.onSend,
-              icon: widget.isSubmitting ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)) : const Icon(Icons.send),
+              icon: widget.isSubmitting ? const AppLoading(compact: true) : const Icon(Icons.send),
             ),
           ],
         ),

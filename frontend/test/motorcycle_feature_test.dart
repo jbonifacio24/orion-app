@@ -6,6 +6,7 @@ import 'package:motohub/features/motorcycles/domain/entities/motorcycle.dart';
 import 'package:motohub/features/motorcycles/domain/repositories/motorcycle_repository.dart';
 import 'package:motohub/features/motorcycles/domain/usecases/create_motorcycle.dart';
 import 'package:motohub/features/motorcycles/domain/usecases/delete_motorcycle.dart';
+import 'package:motohub/features/motorcycles/domain/usecases/delete_motorcycle_as_admin.dart';
 import 'package:motohub/features/motorcycles/domain/usecases/get_motorcycle_by_id.dart';
 import 'package:motohub/features/motorcycles/domain/usecases/get_motorcycles.dart';
 import 'package:motohub/features/motorcycles/domain/usecases/update_motorcycle.dart';
@@ -29,7 +30,7 @@ void main() {
 
   test('motorcycle cubit synchronizes list after create and delete', () async {
     final repository = _MotorcycleRepository();
-    final cubit = MotorcycleCubit(GetMotorcycles(repository), GetMotorcycleById(repository), CreateMotorcycle(repository), UpdateMotorcycle(repository), DeleteMotorcycle(repository));
+    final cubit = MotorcycleCubit(GetMotorcycles(repository), GetMotorcycleById(repository), CreateMotorcycle(repository), UpdateMotorcycle(repository), DeleteMotorcycle(repository), DeleteMotorcycleAsAdmin(repository));
     addTearDown(cubit.close);
     await cubit.loadMotorcycles();
     expect(cubit.state.motorcycles, isEmpty);
@@ -37,6 +38,18 @@ void main() {
     expect(cubit.state.motorcycles, hasLength(1));
     final id = cubit.state.motorcycles.single.id;
     expect(await cubit.delete(id), isTrue);
+    expect(cubit.state.motorcycles, isEmpty);
+  });
+
+  test('motorcycle cubit uses the admin delete operation for moderation', () async {
+    final repository = _MotorcycleRepository();
+    final item = await repository.create(brand: 'Honda', model: 'CB', year: 2020, isPrimary: true);
+    final cubit = _cubit(repository);
+    addTearDown(cubit.close);
+    await cubit.loadMotorcycles();
+
+    expect(await cubit.deleteAsAdmin(item.id), isTrue);
+    expect(repository.adminDeleteCalls, 1);
     expect(cubit.state.motorcycles, isEmpty);
   });
 
@@ -99,9 +112,18 @@ void main() {
     await tester.pumpWidget(const MaterialApp(home: MotorcycleImagePreview(url: 'https://example.com/motorcycle.jpg')));
     expect(find.byType(Image), findsOneWidget);
   });
+
+  testWidgets('motorcycle image preview resolves relative media URLs', (tester) async {
+    await tester.pumpWidget(const MaterialApp(home: MotorcycleImagePreview(url: '/media/product-images/motorcycles/photo.jpg')));
+    final image = tester.widget<Image>(find.byType(Image));
+    final resolvedUri = Uri.parse((image.image as NetworkImage).url);
+    expect(resolvedUri.hasScheme, isTrue);
+    expect(resolvedUri.hasAuthority, isTrue);
+    expect(resolvedUri.path, '/media/product-images/motorcycles/photo.jpg');
+  });
 }
 
-MotorcycleCubit _cubit(_MotorcycleRepository repository) => MotorcycleCubit(GetMotorcycles(repository), GetMotorcycleById(repository), CreateMotorcycle(repository), UpdateMotorcycle(repository), DeleteMotorcycle(repository));
+MotorcycleCubit _cubit(_MotorcycleRepository repository) => MotorcycleCubit(GetMotorcycles(repository), GetMotorcycleById(repository), CreateMotorcycle(repository), UpdateMotorcycle(repository), DeleteMotorcycle(repository), DeleteMotorcycleAsAdmin(repository));
 
 class _MotorcycleRepository implements MotorcycleRepository {
   final List<Motorcycle> items = [];
@@ -110,6 +132,7 @@ class _MotorcycleRepository implements MotorcycleRepository {
   bool failMutation = false;
   Duration mutationDelay = Duration.zero;
   int createCalls = 0;
+  int adminDeleteCalls = 0;
 
   @override
   Future<List<Motorcycle>> getAll() async {
@@ -135,4 +158,10 @@ class _MotorcycleRepository implements MotorcycleRepository {
 
   @override
   Future<void> delete(String id) async => items.removeWhere((item) => item.id == id);
+
+  @override
+  Future<void> deleteAsAdmin(String id) async {
+    adminDeleteCalls++;
+    await delete(id);
+  }
 }

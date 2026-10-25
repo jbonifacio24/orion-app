@@ -7,6 +7,7 @@ import '../../domain/usecases/chat_usecases.dart';
 class ConversationsState {
   const ConversationsState({
     this.items = const [],
+    this.unreadCount = 0,
     this.isInitialLoading = false,
     this.isRefreshing = false,
     this.isCreating = false,
@@ -15,6 +16,7 @@ class ConversationsState {
   });
 
   final List<Conversation> items;
+  final int unreadCount;
   final bool isInitialLoading;
   final bool isRefreshing;
   final bool isCreating;
@@ -23,6 +25,7 @@ class ConversationsState {
 
   ConversationsState copyWith({
     List<Conversation>? items,
+    int? unreadCount,
     bool? isInitialLoading,
     bool? isRefreshing,
     bool? isCreating,
@@ -32,6 +35,7 @@ class ConversationsState {
     bool clearActionFailure = false,
   }) => ConversationsState(
         items: items ?? this.items,
+      unreadCount: unreadCount ?? this.unreadCount,
         isInitialLoading: isInitialLoading ?? this.isInitialLoading,
         isRefreshing: isRefreshing ?? this.isRefreshing,
         isCreating: isCreating ?? this.isCreating,
@@ -55,7 +59,7 @@ class ConversationsCubit extends Cubit<ConversationsState> {
     try {
       final items = await _getConversations();
       if (isClosed || requestId != _generation) return;
-      emit(state.copyWith(items: items, isInitialLoading: false, isRefreshing: false, clearFailure: true));
+      emit(state.copyWith(items: items, unreadCount: _unreadCount(items), isInitialLoading: false, isRefreshing: false, clearFailure: true));
     } catch (error) {
       if (isClosed || requestId != _generation) return;
       emit(state.copyWith(isInitialLoading: false, isRefreshing: false, failure: ErrorMapper.from(error).message));
@@ -69,7 +73,7 @@ class ConversationsCubit extends Cubit<ConversationsState> {
     try {
       final items = await _getConversations();
       if (isClosed || requestId != _generation) return;
-      emit(state.copyWith(items: items, isRefreshing: false, isInitialLoading: false, clearFailure: true));
+      emit(state.copyWith(items: items, unreadCount: _unreadCount(items), isRefreshing: false, isInitialLoading: false, clearFailure: true));
     } catch (error) {
       if (isClosed || requestId != _generation) return;
       emit(state.copyWith(isRefreshing: false, failure: ErrorMapper.from(error).message));
@@ -108,8 +112,10 @@ class ConversationsCubit extends Cubit<ConversationsState> {
       unreadCount: 0,
     );
     final items = [...state.items]..[index] = updated;
-    emit(state.copyWith(items: items));
+    emit(state.copyWith(items: items, unreadCount: state.unreadCount - current.unreadCount));
   }
+
+  void incrementUnreadCount() => emit(state.copyWith(unreadCount: state.unreadCount + 1));
 
   void clear() {
     _generation++;
@@ -117,6 +123,8 @@ class ConversationsCubit extends Cubit<ConversationsState> {
   }
 
   void clearActionFailure() => emit(state.copyWith(clearActionFailure: true));
+
+  int _unreadCount(List<Conversation> items) => items.fold(0, (total, item) => total + item.unreadCount);
 
   List<Conversation> _replaceConversation(List<Conversation> items, Conversation conversation) {
     final byId = {for (final item in items) item.id: item};

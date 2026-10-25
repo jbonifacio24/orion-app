@@ -46,7 +46,11 @@ class _FakeAuthRepository implements AuthRepository {
       );
 
   @override
-  Future<AuthUser> login(String emailOrUserName, String password) async => currentUser!;
+  Future<AuthUser> login(String emailOrUserName, String password) async =>
+      currentUser!;
+
+  @override
+  Future<AuthUser> loginWithGoogle(String idToken) async => currentUser!;
 
   @override
   Future<AuthUser> register({
@@ -56,7 +60,8 @@ class _FakeAuthRepository implements AuthRepository {
     required String confirmPassword,
     String? firstName,
     String? lastName,
-  }) async => currentUser!;
+  }) async =>
+      currentUser!;
 
   @override
   Future<void> logout() async {
@@ -65,6 +70,9 @@ class _FakeAuthRepository implements AuthRepository {
 
   @override
   Future<void> restoreSession() async {}
+
+  @override
+  Future<void> confirmEmail(String userId, String token) async {}
 
   @override
   Future<void> forgotPassword(String email) async {}

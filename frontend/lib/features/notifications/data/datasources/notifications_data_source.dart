@@ -15,7 +15,7 @@ class NotificationsDataSource {
     NotificationType? type,
   }) async {
     final response = await _dio.get<Map<String, dynamic>>(
-      '/api/notifications',
+      '/notifications',
       queryParameters: {
         'page': page,
         'pageSize': pageSize,
@@ -27,13 +27,13 @@ class NotificationsDataSource {
   }
 
   Future<int> getUnreadCount() async {
-    final response = await _dio.get<Map<String, dynamic>>('/api/notifications/unread-count');
+    final response = await _dio.get<Map<String, dynamic>>('/notifications/unread-count');
     final count = response.data?['count'];
     if (count is! int) throw const FormatException('El contador de notificaciones no es válido.');
     return count;
   }
 
-  Future<void> markAsRead(String id) => _dio.patch<void>('/api/notifications/$id/read');
+  Future<void> markAsRead(String id) => _dio.patch<void>('/notifications/$id/read');
 
-  Future<void> markAllAsRead() => _dio.patch<void>('/api/notifications/read-all');
+  Future<void> markAllAsRead() => _dio.patch<void>('/notifications/read-all');
 }

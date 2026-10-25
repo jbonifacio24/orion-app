@@ -65,14 +65,14 @@ class _MyTheftReportsPageState extends State<MyTheftReportsPage> {
                       if (index == state.reports.length) {
                         return state.loadingMoreError != null
                             ? Center(child: OutlinedButton.icon(onPressed: context.read<MyTheftReportsCubit>().retryLoadMore, icon: const Icon(Icons.refresh), label: const Text('Reintentar')))
-                            : const Padding(padding: EdgeInsets.all(20), child: Center(child: CircularProgressIndicator()));
+                            : const Padding(padding: EdgeInsets.all(20), child: AppLoading(compact: true));
                       }
                       final report = state.reports[index];
                       return TheftReportCard(
                         report: report,
                         onTap: () => context.pushNamed('theft-report-detail', pathParameters: {'id': report.id}),
                         trailing: state.updatingId == report.id
-                            ? const SizedBox.square(dimension: 24, child: CircularProgressIndicator(strokeWidth: 2))
+                            ? const AppLoading(compact: true)
                             : report.status.isActive
                                 ? PopupMenuButton<TheftReportStatus>(
                                     tooltip: 'Resolver reporte',

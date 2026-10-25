@@ -1,10 +1,13 @@
 import '../../../../core/error/error_mapper.dart';
 import '../../domain/entities/motorcycle.dart';
+import '../../domain/entities/motorcycle_image.dart';
+import '../../domain/entities/motorcycle_image_upload.dart';
+import '../../domain/repositories/motorcycle_image_repository.dart';
 import '../../domain/repositories/motorcycle_repository.dart';
 import '../datasources/motorcycle_data_source.dart';
 import '../models/motorcycle_models.dart';
 
-class MotorcycleRepositoryImpl implements MotorcycleRepository {
+class MotorcycleRepositoryImpl implements MotorcycleRepository, MotorcycleImageRepository {
   MotorcycleRepositoryImpl(this._dataSource);
   final MotorcycleDataSource _dataSource;
 
@@ -50,6 +53,33 @@ class MotorcycleRepositoryImpl implements MotorcycleRepository {
   Future<void> delete(String id) async {
     try {
       await _dataSource.delete(id);
+    } catch (error) {
+      throw ErrorMapper.from(error);
+    }
+  }
+
+  @override
+  Future<void> deleteAsAdmin(String id) async {
+    try {
+      await _dataSource.deleteAsAdmin(id);
+    } catch (error) {
+      throw ErrorMapper.from(error);
+    }
+  }
+
+  @override
+  Future<MotorcycleImage> uploadImage(String id, MotorcycleImageUpload image) async {
+    try {
+      return await _dataSource.uploadImage(id, image);
+    } catch (error) {
+      throw ErrorMapper.from(error);
+    }
+  }
+
+  @override
+  Future<void> deleteImage(String id, String imageId) async {
+    try {
+      await _dataSource.deleteImage(id, imageId);
     } catch (error) {
       throw ErrorMapper.from(error);
     }

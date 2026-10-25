@@ -24,6 +24,12 @@ public sealed class ChatHub(IChatService chatService) : Hub
         await Groups.RemoveFromGroupAsync(Context.ConnectionId, ChatGroupNames.Conversation(conversationId));
     }
 
+    public async Task UpdateRouteLocation(Guid conversationId, double latitude, double longitude)
+    {
+        var location = await chatService.PublishRouteLocationAsync(CurrentUserId(), conversationId, latitude, longitude, Context.ConnectionAborted);
+        await Clients.Group(ChatGroupNames.Conversation(conversationId)).SendAsync("LocationUpdated", location, Context.ConnectionAborted);
+    }
+
     private Guid CurrentUserId()
     {
         var value = Context.User?.FindFirstValue(ClaimTypes.NameIdentifier) ??
