@@ -1,0 +1,12 @@
+.git
+.env
+.env.*
+!.env.example
+**/bin/
+**/obj/
+frontend/.dart_tool/
+frontend/build/
+frontend/.flutter-plugins
+frontend/.flutter-plugins-dependencies
+frontend/android/.gradle/
+frontend/ios/Pods/

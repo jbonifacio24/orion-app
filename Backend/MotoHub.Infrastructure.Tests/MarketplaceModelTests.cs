@@ -21,21 +21,21 @@ public sealed class MarketplaceModelTests
         Assert.NotNull(product?.GetQueryFilter());
         Assert.NotNull(context.Model.FindEntityType(typeof(ProductCategory))?.GetQueryFilter());
         Assert.Contains(favorite!.GetKeys(), key => key.Properties.Count == 2 && key.Properties[0].Name == nameof(ProductFavorite.UserId) && key.Properties[1].Name == nameof(ProductFavorite.ProductId));
-        Assert.Contains(image!.GetIndexes(), index => index.IsUnique && index.GetFilter() == "[IsPrimary] = 1");
+        Assert.Contains(image!.GetIndexes(), index => index.IsUnique && index.GetFilter() == "\"IsPrimary\" = TRUE");
         Assert.True(product!.FindProperty(nameof(Entity.RowVersion))!.IsConcurrencyToken);
     }
 
     [Theory]
-    [InlineData(2601, "Violation of unique index IX_ProductFavorites_UserId_ProductId.")]
-    [InlineData(2627, "Violation of unique constraint PK_ProductFavorites.")]
-    public void Product_favorite_unique_conflicts_are_classified(int errorNumber, string message)
-        => Assert.True(MarketplaceConflictClassifier.IsProductFavoriteUniqueConflict(errorNumber, message));
+    [InlineData("23505", "IX_ProductFavorites_UserId_ProductId")]
+    [InlineData("23505", "PK_ProductFavorites")]
+    public void Product_favorite_unique_conflicts_are_classified(string sqlState, string constraintName)
+        => Assert.True(MarketplaceConflictClassifier.IsProductFavoriteUniqueConflict(sqlState, constraintName));
 
     [Fact]
-    public void Unknown_sql_errors_are_not_classified_as_favorite_conflicts()
+    public void Unknown_postgres_errors_are_not_classified_as_favorite_conflicts()
     {
-        Assert.False(MarketplaceConflictClassifier.IsProductFavoriteUniqueConflict(547, "Foreign key ProductFavorites."));
-        Assert.False(MarketplaceConflictClassifier.IsProductFavoriteUniqueConflict(2601, "IX_OtherTable_OtherIndex"));
+        Assert.False(MarketplaceConflictClassifier.IsProductFavoriteUniqueConflict("23503", "FK_ProductFavorites_Product"));
+        Assert.False(MarketplaceConflictClassifier.IsProductFavoriteUniqueConflict("23505", "IX_OtherTable_OtherIndex"));
     }
 
     private static MotoHubDbContext CreateContext()

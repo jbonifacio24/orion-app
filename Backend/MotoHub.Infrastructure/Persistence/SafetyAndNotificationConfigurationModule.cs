@@ -10,7 +10,7 @@ internal sealed class SafetyAndNotificationConfigurationModule : IModelConfigura
         builder.Entity<TheftReport>(e =>
         {
             EntityConfigurationHelper.ConfigureEntity(e, "TheftReports"); e.Property(x => x.Title).HasMaxLength(200).IsRequired(); e.Property(x => x.Description).HasMaxLength(10000).IsRequired(); e.Property(x => x.Vin).HasMaxLength(100); e.Property(x => x.Status).HasConversion<string>().HasMaxLength(40).IsRequired(); e.HasIndex(x => new { x.Status, x.CreatedAt });
-            e.ToTable("TheftReports", table => table.HasCheckConstraint("CK_TheftReports_Coordinates", "([Latitude] IS NULL OR [Latitude] BETWEEN -90 AND 90) AND ([Longitude] IS NULL OR [Longitude] BETWEEN -180 AND 180)")); e.HasOne(x => x.Reporter).WithMany().HasForeignKey(x => x.ReporterUserId).OnDelete(DeleteBehavior.Restrict); e.HasOne(x => x.Motorcycle).WithMany().HasForeignKey(x => x.MotorcycleId).OnDelete(DeleteBehavior.NoAction); e.HasQueryFilter(x => !x.IsDeleted);
+            e.ToTable("TheftReports", table => table.HasCheckConstraint("CK_TheftReports_Coordinates", "(\"Latitude\" IS NULL OR \"Latitude\" BETWEEN -90 AND 90) AND (\"Longitude\" IS NULL OR \"Longitude\" BETWEEN -180 AND 180)")); e.HasOne(x => x.Reporter).WithMany().HasForeignKey(x => x.ReporterUserId).OnDelete(DeleteBehavior.Restrict); e.HasOne(x => x.Motorcycle).WithMany().HasForeignKey(x => x.MotorcycleId).OnDelete(DeleteBehavior.NoAction); e.HasQueryFilter(x => !x.IsDeleted);
         });
         builder.Entity<TheftAlertRecipient>(e =>
         {

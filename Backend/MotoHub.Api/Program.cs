@@ -23,6 +23,13 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Host.UseSerilog((context, configuration) =>
     configuration.ReadFrom.Configuration(context.Configuration));
 builder.Services.AddControllers();
+builder.Services.AddHttpClient("Nominatim", client =>
+{
+    client.BaseAddress = new Uri("https://nominatim.openstreetmap.org/");
+    client.DefaultRequestHeaders.UserAgent.ParseAdd("MotoHub/0.1");
+    client.DefaultRequestHeaders.Accept.ParseAdd("application/json");
+    client.Timeout = TimeSpan.FromSeconds(10);
+});
 builder.Services.AddInfrastructure(builder.Configuration);
 builder.Services.AddSignalR();
 builder.Services.AddScoped<IChatRealtimeNotifier, SignalRChatRealtimeNotifier>();
@@ -79,6 +86,13 @@ builder.Services.AddRateLimiter(options =>
         limiter.Window = TimeSpan.FromMinutes(1);
         limiter.QueueLimit = 0;
     });
+    options.AddFixedWindowLimiter("nominatim-geocoding", limiter =>
+    {
+        limiter.PermitLimit = 1;
+        limiter.Window = TimeSpan.FromSeconds(1);
+        limiter.QueueLimit = 2;
+        limiter.QueueProcessingOrder = QueueProcessingOrder.OldestFirst;
+    });
 });
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(options =>
@@ -104,6 +118,18 @@ builder.Services.AddSwaggerGen(options =>
 });
 builder.Services.AddCors(options =>
 {
+    var configuredOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>();
+    var allowedOrigins = configuredOrigins is { Length: > 0 }
+        ? configuredOrigins
+        : new[]
+        {
+            "http://localhost:3000",
+            "http://localhost:8080",
+            "http://localhost:64233",
+            "http://localhost:8081",
+            "http://127.0.0.1:8080",
+            "http://127.0.0.1:8081"
+        };
     options.AddPolicy("Frontend", policy =>
     {
         policy.AllowAnyHeader().AllowAnyMethod();
@@ -114,13 +140,7 @@ builder.Services.AddCors(options =>
             return;
         }
 
-        policy.WithOrigins(
-            "http://localhost:3000",
-            "http://localhost:8080",
-            "http://localhost:64233",
-            "http://localhost:8081",
-            "http://127.0.0.1:8080",
-            "http://127.0.0.1:8081");
+        policy.WithOrigins(allowedOrigins);
     });
 });
 

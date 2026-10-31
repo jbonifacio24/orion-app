@@ -3,6 +3,7 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 
 import '../../../../core/widgets/current_location_map_button.dart';
+import '../../../../core/widgets/map_location_search_field.dart';
 
 class TheftLocationPicker extends StatefulWidget {
   const TheftLocationPicker({this.initialLocation, super.key});
@@ -15,7 +16,8 @@ class TheftLocationPicker extends StatefulWidget {
 
 class _TheftLocationPickerState extends State<TheftLocationPicker> {
   final MapController _mapController = MapController();
-  late LatLng _selectedLocation = widget.initialLocation ?? const LatLng(-12.0464, -77.0428);
+  late LatLng _selectedLocation =
+      widget.initialLocation ?? const LatLng(-12.0464, -77.0428);
 
   @override
   void dispose() {
@@ -45,24 +47,50 @@ class _TheftLocationPickerState extends State<TheftLocationPicker> {
                 onTap: (_, point) => setState(() => _selectedLocation = point),
               ),
               children: [
-                TileLayer(urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png', userAgentPackageName: 'com.motohub.app'),
+                TileLayer(
+                    urlTemplate:
+                        'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                    userAgentPackageName: 'com.motohub.app'),
                 MarkerLayer(markers: [
                   Marker(
                     point: _selectedLocation,
                     width: 56,
                     height: 64,
-                    child: const Icon(Icons.location_on_rounded, color: Colors.red, size: 52),
+                    child: const Icon(Icons.location_on_rounded,
+                        color: Colors.red, size: 52),
                   ),
                 ]),
-                const RichAttributionWidget(attributions: [TextSourceAttribution('OpenStreetMap contributors')]),
+                const RichAttributionWidget(attributions: [
+                  TextSourceAttribution('OpenStreetMap contributors')
+                ]),
               ],
+            ),
+            Positioned(
+              top: 16,
+              left: 16,
+              right: 16,
+              child: Material(
+                elevation: 4,
+                color: Theme.of(context).colorScheme.surface,
+                borderRadius: BorderRadius.circular(8),
+                child: Padding(
+                  padding: const EdgeInsets.all(8),
+                  child: MapLocationSearchField(
+                    onSelected: (result) {
+                      setState(() => _selectedLocation = result.location);
+                      _mapController.move(result.location, 15);
+                    },
+                  ),
+                ),
+              ),
             ),
             Positioned(
               right: 16,
               bottom: 88,
               child: CurrentLocationMapButton(
                 mapController: _mapController,
-                onLocationFound: (location) => setState(() => _selectedLocation = location),
+                onLocationFound: (location) =>
+                    setState(() => _selectedLocation = location),
               ),
             ),
             Positioned(
@@ -71,8 +99,11 @@ class _TheftLocationPickerState extends State<TheftLocationPicker> {
               bottom: 20,
               child: Card(
                 child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                  child: Text('Lat: ${_selectedLocation.latitude.toStringAsFixed(6)}  |  Lon: ${_selectedLocation.longitude.toStringAsFixed(6)}', textAlign: TextAlign.center),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  child: Text(
+                      'Lat: ${_selectedLocation.latitude.toStringAsFixed(6)}  |  Lon: ${_selectedLocation.longitude.toStringAsFixed(6)}',
+                      textAlign: TextAlign.center),
                 ),
               ),
             ),

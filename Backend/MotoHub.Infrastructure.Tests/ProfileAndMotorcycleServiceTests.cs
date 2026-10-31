@@ -93,18 +93,17 @@ public sealed class ProfileAndMotorcycleServiceTests
     [Theory]
     [InlineData("IX_Motorcycles_Vin")]
     [InlineData("IX_Motorcycles_OwnerUserId_IsPrimary")]
-    public void Known_sql_unique_constraints_are_classified_as_conflicts(string indexName)
+    public void Known_postgres_unique_constraints_are_classified_as_conflicts(string indexName)
     {
-        Assert.True(MotorcycleConflictClassifier.IsKnownUniqueConstraint(2601, $"Violation of unique index {indexName}."));
-        Assert.True(MotorcycleConflictClassifier.IsKnownUniqueConstraint(2627, $"Violation of unique constraint {indexName}."));
+        Assert.True(MotorcycleConflictClassifier.IsKnownUniqueConstraint("23505", indexName));
     }
 
     [Theory]
-    [InlineData(547, "The INSERT statement conflicted with a FOREIGN KEY constraint.")]
-    [InlineData(2601, "Violation of unique index IX_OtherTable_OtherIndex.")]
-    public void Unknown_sql_errors_are_not_classified_as_motorcycle_conflicts(int sqlErrorNumber, string message)
+    [InlineData("23503", "FK_Motorcycles_Owner")]
+    [InlineData("23505", "IX_OtherTable_OtherIndex")]
+    public void Unknown_postgres_errors_are_not_classified_as_motorcycle_conflicts(string sqlState, string? constraintName)
     {
-        Assert.False(MotorcycleConflictClassifier.IsKnownUniqueConstraint(sqlErrorNumber, message));
+        Assert.False(MotorcycleConflictClassifier.IsKnownUniqueConstraint(sqlState, constraintName));
     }
 
     [Fact]

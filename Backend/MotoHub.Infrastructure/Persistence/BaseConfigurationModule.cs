@@ -21,7 +21,7 @@ internal sealed class BaseConfigurationModule : IModelConfigurationModule
             e.Property(x => x.Bio).HasMaxLength(2000);
             e.HasIndex(x => x.NormalizedEmail).IsUnique();
             e.HasIndex(x => x.NormalizedUserName).IsUnique();
-            e.HasIndex(x => x.PhoneNumber).IsUnique().HasFilter("[PhoneNumber] IS NOT NULL");
+            e.HasIndex(x => x.PhoneNumber).IsUnique().HasFilter("\"PhoneNumber\" IS NOT NULL");
             e.HasQueryFilter(x => !x.IsDeleted);
         });
         builder.Entity<Role>(e =>

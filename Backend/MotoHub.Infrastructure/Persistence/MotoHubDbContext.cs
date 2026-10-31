@@ -79,10 +79,14 @@ public sealed class MotoHubDbContext(DbContextOptions<MotoHubDbContext> options)
             {
                 entry.Entity.CreatedAt = now;
                 entry.Entity.UpdatedAt = now;
+                if (entry.Property(nameof(Entity.RowVersion)).Metadata.IsConcurrencyToken && entry.Entity.RowVersion.Length == 0)
+                    entry.Entity.RowVersion = Guid.NewGuid().ToByteArray();
             }
             else if (entry.State == EntityState.Modified)
             {
                 entry.Entity.UpdatedAt = now;
+                if (entry.Property(nameof(Entity.RowVersion)).Metadata.IsConcurrencyToken)
+                    entry.Entity.RowVersion = Guid.NewGuid().ToByteArray();
             }
 
             if (entry.Entity is SoftDeletableEntity softDelete && entry.State == EntityState.Modified)

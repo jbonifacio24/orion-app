@@ -4,7 +4,6 @@ using System.Data.Common;
 using System.Security.Claims;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity;
-using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.Extensions.DependencyInjection;
@@ -16,15 +15,15 @@ using MotoHub.Infrastructure.Administration;
 using MotoHub.Infrastructure.Auditing;
 using MotoHub.Infrastructure.Authentication;
 using MotoHub.Infrastructure.Persistence;
-using MotoHub.Infrastructure.Tests.SqlServer;
+using MotoHub.Infrastructure.Tests.Postgres;
 using Xunit;
 
 namespace MotoHub.Infrastructure.Tests;
 
-[Collection(SqlServerCollection.Name)]
-[Trait("Category", "SqlServer")]
+[Collection(PostgresCollection.Name)]
+[Trait("Category", "Postgres")]
 [Trait("Category", "Integration")]
-public sealed class SqlServerAdminConcurrencyTests(SqlServerTestFixture fixture)
+public sealed class PostgresAdminConcurrencyTests(PostgresTestFixture fixture)
 {
     [Fact]
     public async Task ReplaceRolesAsync_WhenTwoOperationalAdminsRemoveEachOtherConcurrently_CharacterizesLastAdminProtection()
@@ -348,8 +347,8 @@ public sealed class SqlServerAdminConcurrencyTests(SqlServerTestFixture fixture)
         services.AddHttpContextAccessor();
         services.AddDbContext<MotoHubDbContext>(options =>
         {
-            options.UseSqlServer(fixture.ConnectionString, sql =>
-                sql.MigrationsAssembly(typeof(MotoHubDbContext).Assembly.FullName));
+            options.UseNpgsql(fixture.ConnectionString, postgres =>
+                postgres.MigrationsAssembly(typeof(MotoHubDbContext).Assembly.FullName));
             options.AddInterceptors(synchronization);
         });
         services.AddIdentityCore<MotoHubIdentityUser>()

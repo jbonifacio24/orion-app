@@ -146,7 +146,7 @@ public class ApiFactory : WebApplicationFactory<Program>
     public const string Audience = "MotoHub.Api.Tests.Client";
     public const string SigningKey = "01234567890123456789012345678901";
     private readonly string databaseName = $"api-tests-{Guid.NewGuid():N}";
-    private const string DatabaseConnectionString = "Server=(localdb)\\MSSQLLocalDB;Database=MotoHubApiTests;Trusted_Connection=True;TrustServerCertificate=True";
+    private const string DatabaseConnectionString = "Host=localhost;Port=5432;Database=MotoHubApiTests;Username=postgres";
 
     protected virtual int AuthPermitLimit => 1000;
 

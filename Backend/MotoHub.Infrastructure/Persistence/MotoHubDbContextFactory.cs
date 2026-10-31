@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Design;
 using Microsoft.Extensions.Configuration;
+using System.Reflection;
 
 namespace MotoHub.Infrastructure.Persistence;
 
@@ -13,6 +14,7 @@ public sealed class MotoHubDbContextFactory : IDesignTimeDbContextFactory<MotoHu
             .SetBasePath(apiPath)
             .AddJsonFile("appsettings.json", optional: false)
             .AddJsonFile("appsettings.Development.json", optional: true)
+            .AddUserSecrets(Assembly.Load("MotoHub.Api"), optional: true)
             .AddEnvironmentVariables()
             .Build();
 
@@ -20,8 +22,8 @@ public sealed class MotoHubDbContextFactory : IDesignTimeDbContextFactory<MotoHu
             ?? throw new InvalidOperationException("Connection string 'MotoHubDatabase' is not configured.");
 
         var options = new DbContextOptionsBuilder<MotoHubDbContext>()
-            .UseSqlServer(connectionString, sql =>
-                sql.MigrationsAssembly(typeof(MotoHubDbContext).Assembly.FullName))
+            .UseNpgsql(connectionString, postgres =>
+                postgres.MigrationsAssembly(typeof(MotoHubDbContext).Assembly.FullName))
             .Options;
 
         return new MotoHubDbContext(options);

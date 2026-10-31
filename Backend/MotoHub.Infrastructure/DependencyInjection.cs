@@ -41,8 +41,8 @@ public static class DependencyInjection
         var connectionString = configuration.GetConnectionString("MotoHubDatabase")
             ?? throw new InvalidOperationException("Connection string 'MotoHubDatabase' is not configured.");
 
-        services.AddDbContext<MotoHubDbContext>(options => options.UseSqlServer(connectionString, sql =>
-            sql.MigrationsAssembly(typeof(MotoHubDbContext).Assembly.FullName)));
+        services.AddDbContext<MotoHubDbContext>(options => options.UseNpgsql(connectionString, postgres =>
+            postgres.MigrationsAssembly(typeof(MotoHubDbContext).Assembly.FullName)));
 
         services.AddIdentityCore<MotoHubIdentityUser>(options =>
         {

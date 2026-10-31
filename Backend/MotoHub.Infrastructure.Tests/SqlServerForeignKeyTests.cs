@@ -1,22 +1,22 @@
-using System.Data.Common;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Metadata;
 using MotoHub.Domain;
 using MotoHub.Infrastructure.Persistence;
-using MotoHub.Infrastructure.Tests.SqlServer;
+using MotoHub.Infrastructure.Tests.Postgres;
 using Xunit;
 
 namespace MotoHub.Infrastructure.Tests;
 
-[Collection(SqlServerCollection.Name)]
-[Trait("Category", "SqlServer")]
+[Collection(PostgresCollection.Name)]
+[Trait("Category", "Postgres")]
 [Trait("Category", "Integration")]
-public sealed class SqlServerForeignKeyTests(SqlServerTestFixture fixture)
+public sealed class PostgresForeignKeyTests(PostgresTestFixture fixture)
 {
     [Fact]
-    public async Task Critical_foreign_keys_and_delete_actions_exist_in_sql_server()
+    public async Task Critical_foreign_keys_and_delete_actions_exist_in_model()
     {
         await using var context = fixture.CreateContext();
-        var foreignKeys = await ReadForeignKeysAsync(context.Database.GetDbConnection());
+        var foreignKeys = ReadForeignKeys(context);
 
         AssertForeignKey(foreignKeys, "Products", ["SellerUserId"], "Users", ["Id"], "NO_ACTION");
         AssertForeignKey(foreignKeys, "Products", ["CategoryId"], "ProductCategories", ["Id"], "NO_ACTION");
@@ -69,7 +69,7 @@ public sealed class SqlServerForeignKeyTests(SqlServerTestFixture fixture)
     }
 
     [Fact]
-    public async Task Product_image_delete_is_cascaded_by_sql_server()
+    public async Task Product_image_delete_is_cascaded_by_postgres()
     {
         var (_, productId, imageId) = await CreateProductWithImageAsync();
 
@@ -109,7 +109,7 @@ public sealed class SqlServerForeignKeyTests(SqlServerTestFixture fixture)
             Seller = user,
             Category = category,
             Name = $"Product {Guid.NewGuid():N}",
-            Description = "SQL Server foreign key test product",
+            Description = "PostgreSQL foreign key test product",
             Condition = ProductCondition.New,
             Status = ProductStatus.Draft
         };
@@ -155,42 +155,21 @@ public sealed class SqlServerForeignKeyTests(SqlServerTestFixture fixture)
         Assert.Single(matches);
     }
 
-    private static async Task<List<ForeignKeyMetadata>> ReadForeignKeysAsync(DbConnection connection)
+    private static IReadOnlyList<ForeignKeyMetadata> ReadForeignKeys(MotoHubDbContext context)
     {
-        await connection.OpenAsync();
-        await using var command = connection.CreateCommand();
-        command.CommandText = """
-            SELECT fk.name, childTable.name, childColumn.name, parentTable.name, parentColumn.name,
-                   fk.delete_referential_action_desc, fkc.constraint_column_id
-            FROM sys.foreign_keys AS fk
-            INNER JOIN sys.foreign_key_columns AS fkc ON fkc.constraint_object_id = fk.object_id
-            INNER JOIN sys.tables AS childTable ON childTable.object_id = fk.parent_object_id
-            INNER JOIN sys.columns AS childColumn ON childColumn.object_id = fkc.parent_object_id
-                AND childColumn.column_id = fkc.parent_column_id
-            INNER JOIN sys.tables AS parentTable ON parentTable.object_id = fk.referenced_object_id
-            INNER JOIN sys.columns AS parentColumn ON parentColumn.object_id = fkc.referenced_object_id
-                AND parentColumn.column_id = fkc.referenced_column_id
-            ORDER BY fk.name, fkc.constraint_column_id;
-            """;
-        var result = new List<ForeignKeyMetadata>();
-        await using var reader = await command.ExecuteReaderAsync();
-        while (await reader.ReadAsync())
-        {
-            result.Add(new ForeignKeyMetadata(
-                reader.GetString(0),
-                reader.GetString(1),
-                reader.GetString(2),
-                reader.GetString(3),
-                reader.GetString(4),
-                reader.GetString(5),
-                Convert.ToInt32(reader.GetValue(6))));
-        }
-
-        return result;
+        return context.Model.GetEntityTypes()
+            .SelectMany(entity => entity.GetForeignKeys().SelectMany(foreignKey =>
+                foreignKey.Properties.Select((property, ordinal) => new ForeignKeyMetadata(
+                    entity.GetTableName()!,
+                    property.Name,
+                    foreignKey.PrincipalEntityType.GetTableName()!,
+                    foreignKey.PrincipalKey.Properties[ordinal].Name,
+                    foreignKey.DeleteBehavior is DeleteBehavior.Cascade ? "CASCADE" : "NO_ACTION",
+                    ordinal + 1))))
+            .ToArray();
     }
 
     private sealed record ForeignKeyMetadata(
-        string ForeignKeyName,
         string ChildTable,
         string ChildColumn,
         string ParentTable,

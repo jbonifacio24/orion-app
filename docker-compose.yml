@@ -1,0 +1,58 @@
+services:
+  migrate:
+    build:
+      context: .
+      dockerfile: Backend/MotoHub.Api/Dockerfile
+      target: migrator
+    command:
+      - database
+      - update
+      - --project
+      - Backend/MotoHub.Infrastructure/MotoHub.Infrastructure.csproj
+      - --startup-project
+      - Backend/MotoHub.Api/MotoHub.Api.csproj
+      - --context
+      - MotoHubDbContext
+    restart: "no"
+    environment:
+      ConnectionStrings__MotoHubDatabase: "Host=${DB_HOST:-host.docker.internal};Port=${DB_PORT:-5432};Database=${POSTGRES_DB:?Set POSTGRES_DB in .env};Username=${POSTGRES_USER:?Set POSTGRES_USER in .env};Password=${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+  api:
+    build:
+      context: .
+      dockerfile: Backend/MotoHub.Api/Dockerfile
+      target: runtime
+    restart: unless-stopped
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      ASPNETCORE_HTTP_PORTS: 8080
+      ConnectionStrings__MotoHubDatabase: "Host=${DB_HOST:-host.docker.internal};Port=${DB_PORT:-5432};Database=${POSTGRES_DB:?Set POSTGRES_DB in .env};Username=${POSTGRES_USER:?Set POSTGRES_USER in .env};Password=${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}"
+      Jwt__SigningKey: ${JWT_SIGNING_KEY:?Set JWT_SIGNING_KEY in .env}
+      ProductImages__StorageRoot: /data/product-images
+      Cors__AllowedOrigins__0: ${FRONTEND_ORIGIN:?Set FRONTEND_ORIGIN in .env}
+    ports:
+      - "127.0.0.1:5001:8080"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - product_images:/data/product-images
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+
+  frontend:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+      args:
+        API_BASE_URL: ${API_BASE_URL:?Set API_BASE_URL in .env}
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8080:8080"
+    depends_on:
+      - api
+
+volumes:
+  product_images:

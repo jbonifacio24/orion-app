@@ -3,15 +3,15 @@ using MotoHub.Application.Errors;
 using MotoHub.Application.Marketplace;
 using MotoHub.Domain;
 using MotoHub.Infrastructure.Marketplace;
-using MotoHub.Infrastructure.Tests.SqlServer;
+using MotoHub.Infrastructure.Tests.Postgres;
 using Xunit;
 
 namespace MotoHub.Infrastructure.Tests;
 
-[Collection(SqlServerCollection.Name)]
-[Trait("Category", "SqlServer")]
+[Collection(PostgresCollection.Name)]
+[Trait("Category", "Postgres")]
 [Trait("Category", "Integration")]
-public sealed class SqlServerProductConcurrencyTests(SqlServerTestFixture fixture)
+public sealed class PostgresProductConcurrencyTests(PostgresTestFixture fixture)
 {
     [Fact]
     public async Task Product_service_rejects_stale_update_and_preserves_winning_value()

@@ -1,10 +1,10 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Storage;
-using Microsoft.Data.SqlClient;
 using MotoHub.Application.Errors;
 using MotoHub.Application.Motorcycles;
 using MotoHub.Domain;
 using MotoHub.Infrastructure.Persistence;
+using Npgsql;
 
 namespace MotoHub.Infrastructure.Motorcycles;
 
@@ -209,15 +209,20 @@ internal static class MotorcycleConflictClassifier
 
     public static bool IsKnownUniqueConstraint(DbUpdateException exception)
     {
-        return exception.InnerException is SqlException sqlException &&
-               IsKnownUniqueConstraint(sqlException.Number, sqlException.Message);
+        for (var current = exception.InnerException; current is not null; current = current.InnerException)
+        {
+            if (current is PostgresException postgresException &&
+                IsKnownUniqueConstraint(postgresException.SqlState, postgresException.ConstraintName))
+                return true;
+        }
+        return false;
     }
 
-    public static bool IsKnownUniqueConstraint(int sqlErrorNumber, string message)
+    public static bool IsKnownUniqueConstraint(string sqlState, string? constraintName)
     {
-        if (sqlErrorNumber is not (2601 or 2627)) return false;
+        if (sqlState != PostgresErrorCodes.UniqueViolation || constraintName is null) return false;
 
-        return message.Contains("IX_Motorcycles_Vin", StringComparison.OrdinalIgnoreCase) ||
-               message.Contains("IX_Motorcycles_OwnerUserId_IsPrimary", StringComparison.OrdinalIgnoreCase);
+        return constraintName.Contains("IX_Motorcycles_Vin", StringComparison.OrdinalIgnoreCase) ||
+               constraintName.Contains("IX_Motorcycles_OwnerUserId_IsPrimary", StringComparison.OrdinalIgnoreCase);
     }
 }

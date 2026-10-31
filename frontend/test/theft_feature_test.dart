@@ -11,6 +11,8 @@ import 'package:motohub/features/theft/presentation/cubit/my_theft_reports_cubit
 import 'package:motohub/features/theft/presentation/cubit/theft_reports_cubit.dart';
 import 'package:motohub/features/theft/presentation/widgets/theft_report_card.dart';
 import 'package:motohub/features/theft/presentation/widgets/theft_location_picker.dart';
+import 'package:motohub/core/widgets/map_location_search_field.dart';
+import 'package:latlong2/latlong.dart';
 
 void main() {
   test('maps theft report JSON and supports masked VIN responses', () {
@@ -47,13 +49,21 @@ void main() {
     expect(page.items.single.id, 'report-1');
   });
 
-  test('places literal theft report routes before the dynamic detail route', () {
-    final paths = theftReportRoutes().cast<GoRoute>().map((route) => route.path).toList();
+  test('places literal theft report routes before the dynamic detail route',
+      () {
+    final paths =
+        theftReportRoutes().cast<GoRoute>().map((route) => route.path).toList();
 
-    expect(paths, ['/theft-reports', '/theft-reports/mine', '/theft-reports/create', '/theft-reports/:id']);
+    expect(paths, [
+      '/theft-reports',
+      '/theft-reports/mine',
+      '/theft-reports/create',
+      '/theft-reports/:id'
+    ]);
   });
 
-  test('create and status requests never include authority controlled fields', () {
+  test('create and status requests never include authority controlled fields',
+      () {
     final request = CreateTheftReportRequestModel(CreateTheftReportInput(
       title: 'Moto robada',
       description: 'Detalle',
@@ -62,7 +72,9 @@ void main() {
       model: 'MT-03',
       licensePlate: 'ABC-123',
     )).toJson();
-    final status = const UpdateTheftReportStatusRequestModel(TheftReportStatus.recovered).toJson();
+    final status =
+        const UpdateTheftReportStatusRequestModel(TheftReportStatus.recovered)
+            .toJson();
 
     expect(request, containsPair('brand', 'Yamaha'));
     expect(request.keys, isNot(contains('reporterUserId')));
@@ -71,30 +83,39 @@ void main() {
     expect(status, {'status': 'Recovered'});
   });
 
-  test('public reports Cubit preserves pagination metadata and loads the next page', () async {
+  test(
+      'public reports Cubit preserves pagination metadata and loads the next page',
+      () async {
     final repository = _FakeTheftRepository()
       ..activePages = {
         1: _page([_report()], page: 1, totalCount: 2, totalPages: 2),
-        2: _page([_report(id: 'report-2')], page: 2, totalCount: 2, totalPages: 2),
+        2: _page([_report(id: 'report-2')],
+            page: 2, totalCount: 2, totalPages: 2),
       };
-    final cubit = TheftReportsCubit(GetActiveTheftReports(repository), DeleteTheftReport(repository));
+    final cubit = TheftReportsCubit(
+        GetActiveTheftReports(repository), DeleteTheftReport(repository));
     addTearDown(cubit.close);
 
     await cubit.load();
     await cubit.loadMore();
 
     expect(cubit.state.error, isNull);
-    expect(cubit.state.reports.map((report) => report.id), ['report-1', 'report-2']);
+    expect(cubit.state.reports.map((report) => report.id),
+        ['report-1', 'report-2']);
     expect(cubit.state.page, 2);
     expect(cubit.state.pageSize, 20);
     expect(cubit.state.totalCount, 2);
     expect(cubit.state.totalPages, 2);
   });
 
-  test('admin report deletion removes the report from the active list', () async {
+  test('admin report deletion removes the report from the active list',
+      () async {
     final repository = _FakeTheftRepository()
-      ..activePages = {1: _page([_report()], page: 1, totalCount: 1, totalPages: 1)};
-    final cubit = TheftReportsCubit(GetActiveTheftReports(repository), DeleteTheftReport(repository));
+      ..activePages = {
+        1: _page([_report()], page: 1, totalCount: 1, totalPages: 1)
+      };
+    final cubit = TheftReportsCubit(
+        GetActiveTheftReports(repository), DeleteTheftReport(repository));
     addTearDown(cubit.close);
     await cubit.load();
 
@@ -106,23 +127,34 @@ void main() {
     expect(cubit.state.deletingReportId, isNull);
   });
 
-  test('personal reports Cubit only sends recovered or closed status updates', () async {
-    final repository = _FakeTheftRepository()..myPages = {1: _page([_report()], page: 1, totalCount: 1, totalPages: 1)};
-    final cubit = MyTheftReportsCubit(GetMyTheftReports(repository), UpdateTheftReportStatus(repository));
+  test('personal reports Cubit only sends recovered or closed status updates',
+      () async {
+    final repository = _FakeTheftRepository()
+      ..myPages = {
+        1: _page([_report()], page: 1, totalCount: 1, totalPages: 1)
+      };
+    final cubit = MyTheftReportsCubit(
+        GetMyTheftReports(repository), UpdateTheftReportStatus(repository));
     addTearDown(cubit.close);
     await cubit.load();
 
-    expect(await cubit.updateStatus('report-1', TheftReportStatus.reported), isFalse);
+    expect(await cubit.updateStatus('report-1', TheftReportStatus.reported),
+        isFalse);
     expect(repository.statusUpdates, isEmpty);
-    expect(await cubit.updateStatus('report-1', TheftReportStatus.recovered), isTrue);
-    expect(repository.statusUpdates, [('report-1', TheftReportStatus.recovered)]);
+    expect(await cubit.updateStatus('report-1', TheftReportStatus.recovered),
+        isTrue);
+    expect(
+        repository.statusUpdates, [('report-1', TheftReportStatus.recovered)]);
     expect(cubit.state.reports.single.status, TheftReportStatus.recovered);
   });
 
   test('personal reports Cubit preserves pagination metadata', () async {
     final repository = _FakeTheftRepository()
-      ..myPages = {1: _page([_report()], page: 1, totalCount: 21, totalPages: 2)};
-    final cubit = MyTheftReportsCubit(GetMyTheftReports(repository), UpdateTheftReportStatus(repository));
+      ..myPages = {
+        1: _page([_report()], page: 1, totalCount: 21, totalPages: 2)
+      };
+    final cubit = MyTheftReportsCubit(
+        GetMyTheftReports(repository), UpdateTheftReportStatus(repository));
     addTearDown(cubit.close);
 
     await cubit.load();
@@ -137,48 +169,83 @@ void main() {
     final repository = _FakeTheftRepository()
       ..myPages = {
         1: _page([_report()], page: 1, totalCount: 2, totalPages: 2),
-        2: _page([_report(id: 'report-2')], page: 2, totalCount: 2, totalPages: 2),
+        2: _page([_report(id: 'report-2')],
+            page: 2, totalCount: 2, totalPages: 2),
       };
-    final cubit = MyTheftReportsCubit(GetMyTheftReports(repository), UpdateTheftReportStatus(repository));
+    final cubit = MyTheftReportsCubit(
+        GetMyTheftReports(repository), UpdateTheftReportStatus(repository));
     addTearDown(cubit.close);
 
     await cubit.load();
     await cubit.loadMore();
 
     expect(repository.myReportRequests, [(1, 20), (2, 20)]);
-    expect(cubit.state.reports.map((report) => report.id), ['report-1', 'report-2']);
+    expect(cubit.state.reports.map((report) => report.id),
+        ['report-1', 'report-2']);
     expect(cubit.state.page, 2);
     expect(cubit.state.pageSize, 20);
     expect(cubit.state.totalCount, 2);
     expect(cubit.state.totalPages, 2);
   });
 
-  testWidgets('theft report card renders public motorcycle information and status', (tester) async {
-    await tester.pumpWidget(MaterialApp(home: Scaffold(body: TheftReportCard(report: _report()))));
+  testWidgets(
+      'theft report card renders public motorcycle information and status',
+      (tester) async {
+    await tester.pumpWidget(
+        MaterialApp(home: Scaffold(body: TheftReportCard(report: _report()))));
 
     expect(find.text('Moto robada'), findsOneWidget);
     expect(find.textContaining('Honda CB 190R'), findsOneWidget);
     expect(find.text('Reportado'), findsOneWidget);
   });
 
-  testWidgets('location picker exposes the current location control', (tester) async {
+  testWidgets('location picker exposes the current location control',
+      (tester) async {
     await tester.pumpWidget(const MaterialApp(home: TheftLocationPicker()));
 
     expect(find.byTooltip('Usar mi ubicación actual'), findsOneWidget);
   });
+
+  testWidgets('location search returns the selected result coordinates',
+      (tester) async {
+    const result = MapLocationSearchResult(
+      label: 'Plaza San Martín, Lima',
+      location: LatLng(-12.0505, -77.0358),
+    );
+    MapLocationSearchResult? selected;
+
+    await tester.pumpWidget(MaterialApp(
+      home: Scaffold(
+        body: MapLocationSearchField(
+          lookup: (_) async => const [result],
+          onSelected: (value) => selected = value,
+        ),
+      ),
+    ));
+
+    await tester.enterText(find.byType(TextField), 'Plaza San Martín');
+    await tester.tap(find.byTooltip('Buscar ubicación'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text(result.label));
+
+    expect(selected?.location, result.location);
+  });
 }
 
 Map<String, dynamic> _reportJson(String id) => {
-  'id': id,
-  'title': 'Moto robada',
-  'description': 'Detalle',
-  'theftDate': '2026-09-20T10:30:00Z',
-  'status': 'Reported',
-  'createdAt': '2026-09-20T11:00:00Z',
+      'id': id,
+      'title': 'Moto robada',
+      'description': 'Detalle',
+      'theftDate': '2026-09-20T10:30:00Z',
+      'status': 'Reported',
+      'createdAt': '2026-09-20T11:00:00Z',
     };
 
-TheftReport _report({String id = 'report-1', TheftReportStatus status = TheftReportStatus.reported}) => TheftReport(
-  id: id,
+TheftReport _report(
+        {String id = 'report-1',
+        TheftReportStatus status = TheftReportStatus.reported}) =>
+    TheftReport(
+      id: id,
       title: 'Moto robada',
       description: 'Detalle',
       theftDate: DateTime.utc(2026, 9, 20),
@@ -188,7 +255,16 @@ TheftReport _report({String id = 'report-1', TheftReportStatus status = TheftRep
       model: 'CB 190R',
     );
 
-PagedTheftReports _page(List<TheftReport> items, {required int page, required int totalCount, required int totalPages}) => PagedTheftReports(items: items, page: page, pageSize: 20, totalCount: totalCount, totalPages: totalPages);
+PagedTheftReports _page(List<TheftReport> items,
+        {required int page,
+        required int totalCount,
+        required int totalPages}) =>
+    PagedTheftReports(
+        items: items,
+        page: page,
+        pageSize: 20,
+        totalCount: totalCount,
+        totalPages: totalPages);
 
 class _FakeTheftRepository implements TheftRepository {
   Map<int, PagedTheftReports> activePages = const {};
@@ -198,15 +274,21 @@ class _FakeTheftRepository implements TheftRepository {
   final List<String> deletedReports = [];
 
   @override
-  Future<TheftReport> createReport(CreateTheftReportInput input) async => _report();
+  Future<TheftReport> createReport(CreateTheftReportInput input) async =>
+      _report();
 
   @override
-  Future<PagedTheftReports> getActiveReports({int page = 1, int pageSize = 20}) async => activePages[page] ?? _page(const [], page: page, totalCount: 0, totalPages: 0);
+  Future<PagedTheftReports> getActiveReports(
+          {int page = 1, int pageSize = 20}) async =>
+      activePages[page] ??
+      _page(const [], page: page, totalCount: 0, totalPages: 0);
 
   @override
-  Future<PagedTheftReports> getMyReports({int page = 1, int pageSize = 20}) async {
+  Future<PagedTheftReports> getMyReports(
+      {int page = 1, int pageSize = 20}) async {
     myReportRequests.add((page, pageSize));
-    return myPages[page] ?? _page(const [], page: page, totalCount: 0, totalPages: 0);
+    return myPages[page] ??
+        _page(const [], page: page, totalCount: 0, totalPages: 0);
   }
 
   @override

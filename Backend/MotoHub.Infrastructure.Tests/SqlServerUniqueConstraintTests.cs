@@ -1,22 +1,22 @@
-using System.Data.Common;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Metadata;
 using MotoHub.Domain;
 using MotoHub.Infrastructure.Persistence;
-using MotoHub.Infrastructure.Tests.SqlServer;
+using MotoHub.Infrastructure.Tests.Postgres;
 using Xunit;
 
 namespace MotoHub.Infrastructure.Tests;
 
-[Collection(SqlServerCollection.Name)]
-[Trait("Category", "SqlServer")]
+[Collection(PostgresCollection.Name)]
+[Trait("Category", "Postgres")]
 [Trait("Category", "Integration")]
-public sealed class SqlServerUniqueConstraintTests(SqlServerTestFixture fixture)
+public sealed class PostgresUniqueConstraintTests(PostgresTestFixture fixture)
 {
     [Fact]
-    public async Task Critical_unique_indexes_and_filters_exist_in_sql_server()
+    public async Task Critical_unique_indexes_and_filters_exist_in_model()
     {
         await using var context = fixture.CreateContext();
-        var indexes = await ReadIndexesAsync(context.Database.GetDbConnection(), new[]
+        var indexes = ReadIndexes(context, new[]
         {
             "Users", "Roles", "RefreshTokens", "Motorcycles", "MotorcycleImages", "ProductImages",
             "ProductFavorites", "MotorcycleFavorites", "WorkshopFavorites", "PostLikes", "ProductReviews",
@@ -29,19 +29,19 @@ public sealed class SqlServerUniqueConstraintTests(SqlServerTestFixture fixture)
         AssertUnique(indexes, "Users", ["PhoneNumber"], "PhoneNumber IS NOT NULL");
         AssertUnique(indexes, "Roles", ["NormalizedName"]);
         AssertUnique(indexes, "RefreshTokens", ["TokenHash"]);
-        AssertUnique(indexes, "Motorcycles", ["Vin"], "Vin IS NOT NULL AND IsDeleted = 0");
-        AssertUnique(indexes, "Motorcycles", ["OwnerUserId", "IsPrimary"], "IsPrimary = 1 AND IsDeleted = 0");
+        AssertUnique(indexes, "Motorcycles", ["Vin"], "Vin IS NOT NULL AND IsDeleted = FALSE");
+        AssertUnique(indexes, "Motorcycles", ["OwnerUserId", "IsPrimary"], "IsPrimary = TRUE AND IsDeleted = FALSE");
         AssertUnique(indexes, "MotorcycleImages", ["MotorcycleId", "DisplayOrder"]);
-        AssertUnique(indexes, "MotorcycleImages", ["MotorcycleId", "IsPrimary"], "IsPrimary = 1");
+        AssertUnique(indexes, "MotorcycleImages", ["MotorcycleId", "IsPrimary"], "IsPrimary = TRUE");
         AssertPrimaryKey(indexes, "ProductFavorites", ["UserId", "ProductId"]);
         AssertPrimaryKey(indexes, "MotorcycleFavorites", ["UserId", "MotorcycleId"]);
         AssertPrimaryKey(indexes, "WorkshopFavorites", ["UserId", "WorkshopId"]);
         AssertPrimaryKey(indexes, "PostLikes", ["PostId", "UserId"]);
         AssertUnique(indexes, "ProductImages", ["ProductId", "DisplayOrder"]);
-        AssertUnique(indexes, "ProductImages", ["ProductId", "IsPrimary"], "IsPrimary = 1");
+        AssertUnique(indexes, "ProductImages", ["ProductId", "IsPrimary"], "IsPrimary = TRUE");
         AssertUnique(indexes, "ProductReviews", ["AuthorUserId", "ProductId"]);
         AssertUnique(indexes, "WorkshopReviews", ["AuthorUserId", "WorkshopId"]);
-        AssertUnique(indexes, "WorkshopSchedules", ["WorkshopId", "DayOfWeek", "OpenTime", "CloseTime"], "OpenTime IS NOT NULL AND CloseTime IS NOT NULL");
+        AssertUnique(indexes, "WorkshopSchedules", ["WorkshopId", "DayOfWeek", "OpenTime", "CloseTime"]);
         AssertUnique(indexes, "WorkshopServices", ["WorkshopId", "Name"]);
         AssertUnique(indexes, "News", ["Slug"]);
         AssertUnique(indexes, "NewsCategories", ["Slug"]);
@@ -275,6 +275,7 @@ public sealed class SqlServerUniqueConstraintTests(SqlServerTestFixture fixture)
         => new string(filter
             .Replace("[", string.Empty, StringComparison.Ordinal)
             .Replace("]", string.Empty, StringComparison.Ordinal)
+            .Replace("\"", string.Empty, StringComparison.Ordinal)
             .Replace("(", string.Empty, StringComparison.Ordinal)
             .Replace(")", string.Empty, StringComparison.Ordinal)
             .Where(character => !char.IsWhiteSpace(character))
@@ -299,29 +300,30 @@ public sealed class SqlServerUniqueConstraintTests(SqlServerTestFixture fixture)
         return index![0];
     }
 
-    private static async Task<List<IndexMetadata>> ReadIndexesAsync(DbConnection connection, string[] tables)
+    private static IReadOnlyList<IndexMetadata> ReadIndexes(MotoHubDbContext context, string[] tables)
     {
-        await connection.OpenAsync();
-        await using var command = connection.CreateCommand();
-        command.CommandText = """
-            SELECT t.name, i.name, i.is_unique, i.is_primary_key, i.filter_definition, ic.key_ordinal, c.name
-            FROM sys.tables AS t
-            INNER JOIN sys.indexes AS i ON i.object_id = t.object_id
-            INNER JOIN sys.index_columns AS ic ON ic.object_id = i.object_id AND ic.index_id = i.index_id
-            INNER JOIN sys.columns AS c ON c.object_id = ic.object_id AND c.column_id = ic.column_id
-            WHERE t.name IN (SELECT value FROM STRING_SPLIT(@tables, ',')) AND i.index_id > 0 AND ic.key_ordinal > 0
-            ORDER BY t.name, i.name, ic.key_ordinal;
-            """;
-        var parameter = command.CreateParameter();
-        parameter.ParameterName = "@tables";
-        parameter.Value = string.Join(',', tables);
-        command.Parameters.Add(parameter);
+        var tableNames = tables.ToHashSet(StringComparer.Ordinal);
         var result = new List<IndexMetadata>();
-        await using var reader = await command.ExecuteReaderAsync();
-        while (await reader.ReadAsync())
+        foreach (var entity in context.Model.GetEntityTypes())
         {
-            result.Add(new IndexMetadata(reader.GetString(0), reader.GetString(1), reader.GetBoolean(2), reader.GetBoolean(3), reader.IsDBNull(4) ? null : reader.GetString(4), Convert.ToInt32(reader.GetValue(5)), reader.GetString(6)));
+            var table = entity.GetTableName();
+            if (table is null || !tableNames.Contains(table)) continue;
+
+            foreach (var index in entity.GetIndexes())
+            {
+                var name = index.GetDatabaseName() ?? string.Join("_", index.Properties.Select(property => property.Name));
+                result.AddRange(index.Properties.Select((property, ordinal) => new IndexMetadata(
+                    table, name, index.IsUnique, false, index.GetFilter(), ordinal + 1, property.Name)));
+            }
+
+            if (entity.FindPrimaryKey() is { } primaryKey)
+            {
+                var name = $"PK_{table}_{string.Join("_", primaryKey.Properties.Select(property => property.Name))}";
+                result.AddRange(primaryKey.Properties.Select((property, ordinal) => new IndexMetadata(
+                    table, name, true, true, null, ordinal + 1, property.Name)));
+            }
         }
+
         return result;
     }
 

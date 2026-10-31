@@ -153,7 +153,7 @@ public sealed class MarketplaceServiceTests
     }
 
     [Fact]
-    public async Task Product_update_accepts_current_row_version_and_returns_it()
+    public async Task Product_update_accepts_current_row_version_and_returns_a_new_token()
     {
         await using var context = CreateContext();
         var owner = AddUser(context, "owner");
@@ -166,7 +166,7 @@ public sealed class MarketplaceServiceTests
             new UpdateProductRequestDto(category.Id, "Changed", "Description", null, null, null, ProductCondition.Used, null, product.RowVersion), default);
 
         Assert.Equal("Changed", updated.Name);
-        Assert.Equal(product.RowVersion, updated.RowVersion);
+        Assert.NotEqual(product.RowVersion, updated.RowVersion);
     }
 
     [Fact]

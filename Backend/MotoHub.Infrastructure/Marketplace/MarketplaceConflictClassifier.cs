@@ -1,5 +1,5 @@
-using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
+using Npgsql;
 
 namespace MotoHub.Infrastructure.Marketplace;
 
@@ -9,11 +9,11 @@ public static class MarketplaceConflictClassifier
     {
         for (var current = exception.InnerException; current is not null; current = current.InnerException)
         {
-            if (current is SqlException sqlException && IsProductFavoriteUniqueConflict(sqlException.Number, sqlException.Message)) return true;
+            if (current is PostgresException postgresException && IsProductFavoriteUniqueConflict(postgresException.SqlState, postgresException.ConstraintName)) return true;
         }
         return false;
     }
 
-    public static bool IsProductFavoriteUniqueConflict(int sqlErrorNumber, string message)
-        => (sqlErrorNumber is 2601 or 2627) && message.Contains("ProductFavorites", StringComparison.OrdinalIgnoreCase);
+    public static bool IsProductFavoriteUniqueConflict(string sqlState, string? constraintName)
+        => sqlState == PostgresErrorCodes.UniqueViolation && constraintName?.Contains("ProductFavorites", StringComparison.OrdinalIgnoreCase) == true;
 }

@@ -10,15 +10,15 @@ using MotoHub.Application;
 using MotoHub.Domain;
 using MotoHub.Infrastructure.Authentication;
 using MotoHub.Infrastructure.Persistence;
-using MotoHub.Infrastructure.Tests.SqlServer;
+using MotoHub.Infrastructure.Tests.Postgres;
 using Xunit;
 
 namespace MotoHub.Infrastructure.Tests;
 
-[Collection(SqlServerCollection.Name)]
-[Trait("Category", "SqlServer")]
+[Collection(PostgresCollection.Name)]
+[Trait("Category", "Postgres")]
 [Trait("Category", "Integration")]
-public sealed class SqlServerRefreshTokenConcurrencyTests(SqlServerTestFixture fixture)
+public sealed class PostgresRefreshTokenConcurrencyTests(PostgresTestFixture fixture)
 {
     [Fact]
     public async Task RefreshAsync_WhenSameTokenIsConsumedConcurrently_CharacterizesRowVersionOutcome()
@@ -111,8 +111,8 @@ public sealed class SqlServerRefreshTokenConcurrencyTests(SqlServerTestFixture f
         services.AddAuthentication();
         services.AddDbContext<MotoHubDbContext>(options =>
         {
-            options.UseSqlServer(fixture.ConnectionString, sql =>
-                sql.MigrationsAssembly(typeof(MotoHubDbContext).Assembly.FullName));
+            options.UseNpgsql(fixture.ConnectionString, postgres =>
+                postgres.MigrationsAssembly(typeof(MotoHubDbContext).Assembly.FullName));
             if (interceptor is not null)
             {
                 options.AddInterceptors(interceptor);

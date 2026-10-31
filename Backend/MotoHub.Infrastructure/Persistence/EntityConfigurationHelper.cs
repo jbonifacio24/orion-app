@@ -10,7 +10,7 @@ internal static class EntityConfigurationHelper
         entity.HasKey("Id");
         entity.ToTable(table);
         entity.Property<DateTimeOffset>("CreatedAt").IsRequired();
-        entity.Property<byte[]>("RowVersion").IsRowVersion();
+        entity.Property<byte[]>("RowVersion").IsRequired().IsConcurrencyToken();
         if (softDelete)
         {
             entity.Property<bool>("IsDeleted").IsRequired();

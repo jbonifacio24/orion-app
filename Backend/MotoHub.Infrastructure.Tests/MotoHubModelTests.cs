@@ -31,8 +31,8 @@ public sealed class MotoHubModelTests
 
         Assert.NotNull(entity);
         Assert.True(entity!.FindProperty(nameof(Entity.RowVersion))!.IsConcurrencyToken);
-        Assert.True(entity.FindProperty(nameof(Entity.RowVersion))!.ValueGenerated == ValueGenerated.OnAddOrUpdate);
-        Assert.Contains(entity.GetIndexes(), index => index.IsUnique && index.GetFilter() == "[Vin] IS NOT NULL AND [IsDeleted] = 0");
+        Assert.True(entity.FindProperty(nameof(Entity.RowVersion))!.ValueGenerated == ValueGenerated.Never);
+        Assert.Contains(entity.GetIndexes(), index => index.IsUnique && index.GetFilter() == "\"Vin\" IS NOT NULL AND \"IsDeleted\" = FALSE");
         Assert.Contains(entity.GetCheckConstraints(), constraint => constraint.Name == "CK_Motorcycles_Year");
     }
 
